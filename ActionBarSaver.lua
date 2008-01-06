@@ -151,15 +151,18 @@ function ABS:LoadActions(profile)
 					PlaceAction(i)
 					
 				elseif( crtType == "item" ) then
+					local found
 					for bag=1, NUM_BAG_SLOTS do
 						for slot=1, GetContainerNumSlots(bag) do
 							local link = GetContainerItemLink(bag, slot)
-							if( link ) then
+							if( link and not found ) then
 								local itemid = string.match(link, "item:([0-9]+):")
 								itemid = tonumber(itemid)
 								if( itemid and itemid == crtID ) then
 									PickupContainerItem(bag, slot)
 									PlaceAction(i)
+									
+									found = true
 								end
 							end
 						end
