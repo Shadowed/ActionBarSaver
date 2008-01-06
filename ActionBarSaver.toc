@@ -1,0 +1,8 @@
+## Interface: 20300
+## Title: Action Bar Saver
+## Notes: Saves and restores your action bars
+## Author: Mayen
+## Version: $Revision$
+## SavedVariables: ActionBSDB
+
+ActionBarSaver.lua
