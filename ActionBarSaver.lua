@@ -139,37 +139,40 @@ function ABS:LoadActions(profile)
 		local type, id = GetActionInfo(i)
 		if( currentProfile[i] ) then
 			local crtID, crtType = string.split(":", currentProfile[i])
+			crtID = tonumber(crtID)
 			
 			-- Make sure it's not the same thing
-			if( crtType ~= type or crtID ~= id ) then
-				if( crtType == "spell" ) then
-					PickupSpell(crtID, BOOKTYPE_SPELL)
-					PlaceAction(i)
-					
-				elseif( crtType == "macro" ) then
-					PickupMacro(crtID)
-					PlaceAction(i)
-					
-				elseif( crtType == "item" ) then
-					local found
-					for bag=1, NUM_BAG_SLOTS do
-						for slot=1, GetContainerNumSlots(bag) do
-							local link = GetContainerItemLink(bag, slot)
-							if( link and not found ) then
-								local itemid = string.match(link, "item:([0-9]+):")
-								itemid = tonumber(itemid)
-								if( itemid and itemid == crtID ) then
-									PickupContainerItem(bag, slot)
-									PlaceAction(i)
-									
-									found = true
-								end
+			if( crtType == "spell" and crtID ) then
+				PickupSpell(crtID, BOOKTYPE_SPELL)
+				PlaceAction(i)
+				ClearCursor()
+
+			elseif( crtType == "macro" and crtID ) then
+				PickupMacro(crtID)
+				PlaceAction(i)
+				ClearCursor()
+
+			elseif( crtType == "item" and crtID ) then
+				local found
+				for bag=0, NUM_BAG_SLOTS do
+					for slot=1, GetContainerNumSlots(bag) do
+						local link = GetContainerItemLink(bag, slot)
+						if( link and not found ) then
+							local itemid = string.match(link, "item:([0-9]+):")
+							itemid = tonumber(itemid)
+							
+							if( itemid and itemid == crtID ) then
+								PickupContainerItem(bag, slot)
+								PlaceAction(i)
+								ClearCursor()
+
+								found = true
 							end
 						end
 					end
 				end
 			end
-		
+
 		-- We have nothing here, simply clear this spot
 		elseif( type and id ) then
 			PickupAction(i)
@@ -179,7 +182,7 @@ function ABS:LoadActions(profile)
 	
 	-- Now set this as active profile
 	self.db.currentProfile = profile
-
+	
 	return true
 end
 
