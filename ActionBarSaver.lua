@@ -9,6 +9,7 @@ local L = {
 	["%s (%d of 120, %d spells, %d macros, %d items)"] = "%s (%d of 120, %d spells, %d macros, %d items)",
 	["Auto profile save on logout is enabled!"] = "Auto profile save on logout is enabled!",
 	["Auto profile save on logout is disabled!"] = "Auto profile save on logout is disabled!",
+	["Restoring profile %s, this may take a minute or two."] = "Restoring profile %s, this may take a minute or two.",
 	
 	["/abs save <profile> - Saves your current action bar setup under the given profile."] = "/abs save <profile> - Saves your current action bar setup under the given profile.",
 	["/abs restore <profile> - Changes your action bars to the passed profile."] = "/abs restore <profile> - Changes your action bars to the passed profile.",
@@ -28,6 +29,9 @@ function ABS:OnInitialize()
 	
 	self.db = setmetatable(ActionBSDB, {})
 	
+	self.tooltip = CreateFrame("GameTooltip", "ABSTooltip", UIParent, "GameTooltipTemplate")
+	self.tooltip:SetOwner(UIParent, "ANCHOR_NONE")
+
 	SLASH_ACTIONBS1 = "/abs"
 	SLASH_ACTIONBS2 = "/actionbarsaver"
 	SlashCmdList["ACTIONBS"] = function(msg)
@@ -50,6 +54,7 @@ function ABS:OnInitialize()
 		elseif( cmd == "restore" and data ) then
 			data = tostring(data)
 			
+			self:Print(string.format(L["Restoring profile %s, this may take a minute or two."], data))
 			local results = self:LoadActions(data)
 			if( results ) then
 				self:Print(string.format(L["Restored profile %s!"], data))
@@ -120,7 +125,23 @@ function ABS:SaveActions(profile)
 	for i=1, 120 do
 		local type, id = GetActionInfo(i)
 		if( type and id ) then
-			list[i] = id .. ":" .. type
+			if( type == "spell" ) then
+				self.tooltip:ClearLines()
+				self.tooltip:SetSpell(id, BOOKTYPE_SPELL)
+				
+				local spell, rank = self.tooltip:GetSpell()
+				if( spell ) then
+					rank = rank and (string.match(rank, "(%d+)"))
+
+					if( rank and rank ~= "" ) then
+						list[i] = id .. ":" .. type .. ":" .. spell .. ":" .. rank
+					else
+						list[i] = id .. ":" .. type .. ":" .. spell
+					end
+				end
+			else
+				list[i] = id .. ":" .. type
+			end
 		else
 			list[i] = nil
 		end
@@ -129,30 +150,54 @@ function ABS:SaveActions(profile)
 	self.db.profiles[profile] = list
 end
 
+function ABS:GetActionID(id, type, actionName, actionRank)
+	if( type == "spell" and actionName ) then
+		for book=1, MAX_SKILLLINE_TABS do
+			local _, _, offset, numSpells = GetSpellTabInfo(book)
+
+			for i=1, numSpells do
+				local index = offset + i
+				self.tooltip:SetSpell(index, BOOKTYPE_SPELL)
+				
+				local spell, rank = self.tooltip:GetSpell()
+				rank = string.match(rank, "(%d+)")
+				
+				if( rank and rank == actionRank and spell == actionName ) then
+					return index
+				elseif( not rank and not actionRank and spell == actionName ) then
+					return index
+				end
+			end
+		end
+	else
+		return tonumber(id)
+	end
+end
+
 function ABS:LoadActions(profile)
 	local currentProfile = self.db.profiles[profile]
 	if( not currentProfile ) then
 		return nil
 	end
-	
+		
 	for i=1, 120 do
 		local type, id = GetActionInfo(i)
 		if( currentProfile[i] ) then
-			local crtID, crtType = string.split(":", currentProfile[i])
-			crtID = tonumber(crtID)
+			local crtID, crtType, crtName, crtRank = string.split(":", currentProfile[i])
+			local id = self:GetActionID(crtID, crtType, crtName, crtRank)
 			
 			-- Make sure it's not the same thing
-			if( crtType == "spell" and crtID ) then
-				PickupSpell(crtID, BOOKTYPE_SPELL)
+			if( crtType == "spell" and id ) then
+				PickupSpell(id, BOOKTYPE_SPELL)
 				PlaceAction(i)
 				ClearCursor()
 
-			elseif( crtType == "macro" and crtID ) then
-				PickupMacro(crtID)
+			elseif( crtType == "macro" and id ) then
+				PickupMacro(id)
 				PlaceAction(i)
 				ClearCursor()
 
-			elseif( crtType == "item" and crtID ) then
+			elseif( crtType == "item" and id ) then
 				local found
 				for bag=0, NUM_BAG_SLOTS do
 					for slot=1, GetContainerNumSlots(bag) do
@@ -161,7 +206,7 @@ function ABS:LoadActions(profile)
 							local itemid = string.match(link, "item:([0-9]+):")
 							itemid = tonumber(itemid)
 							
-							if( itemid and itemid == crtID ) then
+							if( itemid and itemid == id ) then
 								PickupContainerItem(bag, slot)
 								PlaceAction(i)
 								ClearCursor()
@@ -182,7 +227,6 @@ function ABS:LoadActions(profile)
 	
 	-- Now set this as active profile
 	self.db.currentProfile = profile
-	
 	return true
 end
 
