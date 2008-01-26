@@ -1,4 +1,7 @@
 ABS = {}
+
+local spellCache = {}
+
 local L = {
 	["Slash commands"] = "Slash commands",
 	["Saved profile %s!"] = "Saved profile %s!",
@@ -29,8 +32,8 @@ function ABS:OnInitialize()
 	
 	self.db = setmetatable(ActionBSDB, {})
 	
-	self.tooltip = CreateFrame("GameTooltip", "ABSTooltip", UIParent, "GameTooltipTemplate")
-	self.tooltip:SetOwner(UIParent, "ANCHOR_NONE")
+	self.tooltip = CreateFrame("GameTooltip", "ABSTooltip", self.frame, "GameTooltipTemplate")
+	self.tooltip:SetOwner(self.frame, "ANCHOR_NONE")
 
 	SLASH_ACTIONBS1 = "/abs"
 	SLASH_ACTIONBS2 = "/actionbarsaver"
@@ -54,7 +57,7 @@ function ABS:OnInitialize()
 		elseif( cmd == "restore" and data ) then
 			data = tostring(data)
 			
-			self:Print(string.format(L["Restoring profile %s, this may take a minute or two."], data))
+			--self:Print(string.format(L["Restoring profile %s, this may take a minute or two."], data))
 			local results = self:LoadActions(data)
 			if( results ) then
 				self:Print(string.format(L["Restored profile %s!"], data))
@@ -152,22 +155,10 @@ end
 
 function ABS:GetActionID(id, type, actionName, actionRank)
 	if( type == "spell" and actionName ) then
-		for book=1, MAX_SKILLLINE_TABS do
-			local _, _, offset, numSpells = GetSpellTabInfo(book)
-
-			for i=1, numSpells do
-				local index = offset + i
-				self.tooltip:SetSpell(index, BOOKTYPE_SPELL)
-				
-				local spell, rank = self.tooltip:GetSpell()
-				rank = string.match(rank, "(%d+)")
-				
-				if( rank and rank == actionRank and spell == actionName ) then
-					return index
-				elseif( not rank and not actionRank and spell == actionName ) then
-					return index
-				end
-			end
+		if( actionRank ) then
+			return spellCache[actionName .. actionRank]
+		else
+			return spellCache[actionName]
 		end
 	else
 		return tonumber(id)
@@ -179,7 +170,31 @@ function ABS:LoadActions(profile)
 	if( not currentProfile ) then
 		return nil
 	end
-		
+	
+	-- Create the spell cache
+	for k in pairs(spellCache) do
+		spellCache[k] = nil
+	end
+	
+	for book=1, MAX_SKILLLINE_TABS do
+		local _, _, offset, numSpells = GetSpellTabInfo(book)
+
+		for i=1, numSpells do
+			local index = offset + i
+			self.tooltip:SetSpell(index, BOOKTYPE_SPELL)
+
+			local spell, rank = self.tooltip:GetSpell()
+			rank = string.match(rank, "(%d+)")
+			
+			if( rank ) then
+				spellCache[spell .. rank] = index
+			else
+				spellCache[spell] = index
+			end
+		end
+	end
+	
+	-- Restore positions
 	for i=1, 120 do
 		local type, id = GetActionInfo(i)
 		if( currentProfile[i] ) then
@@ -241,3 +256,5 @@ frame:SetScript("OnEvent", function(self, event, addon)
 		ABS:SaveActions(ABS.db.currentProfile)
 	end
 end)
+
+ABS.frame = frame
