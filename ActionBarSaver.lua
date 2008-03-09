@@ -1,39 +1,14 @@
 ABS = {}
 
+local L = ActionBarSaverLocals
+
 local spellCache = {}
 local macroCache = {}
 local restoreErrors = {}
 local equipSlots = {"HeadSlot", "NeckSlot", "ShoulderSlot", "BackSlot", "ChestSlot", "WristSlot","TabardSlot", "HandsSlot", "WaistSlot", "LegsSlot", "FeetSlot", "Finger0Slot", "Finger1Slot","Trinket0Slot", "Trinket1Slot", "MainHandSlot", "SecondaryHandSlot", "RangedSlot", "AmmoSlot"}
-
+local charID
 
 local MAX_MACROS = 36
-
-local L = {
-	["Slash commands"] = "Slash commands",
-	["Saved profile %s!"] = "Saved profile %s!",
-	["Restored profile %s!"] = "Restored profile %s!",
-	["No profile with the name \"%s\" exists."] = "No profile with the name \"%s\" exists.",
-	["Deleted saved profile %s."] = "Deleted saved profile %s.",
-	["Profile List"] = "Profile List",
-	["%s (%d of 120, %d spells, %d macros, %d items)"] = "%s (%d of 120, %d spells, %d macros, %d items)",
-	["Auto profile save on logout is enabled!"] = "Auto profile save on logout is enabled!",
-	["Auto profile save on logout is disabled!"] = "Auto profile save on logout is disabled!",
-	
-	["/abs save <profile> - Saves your current action bar setup under the given profile."] = "/abs save <profile> - Saves your current action bar setup under the given profile.",
-	["/abs restore <profile> - Changes your action bars to the passed profile."] = "/abs restore <profile> - Changes your action bars to the passed profile.",
-	["/abs delete <profile> - Deletes the saved profile."] = "/abs delete <profile> - Deletes the saved profile.",
-	["/abs logout - Toggles auto saving of the current profile whenever you leave the world."] = "/abs logout - Toggles auto saving of the current profile whenever you leave the world.",
-	["/abs list - Lists all saved profiles."] = "/abs list - Lists all saved profiles.",
-	["/abs errors - Lists the errors that happened on the last restore (if any)."] = "/abs errors - Lists the errors that happened on the last restore (if any).",
-	
-	["Unable to restore item \"%s\" to slot #%d, cannot be found in inventory."] = "Unable to restore item \"%s\" to slot #%d, cannot be found in inventory.",
-	["Unable to restore macro id #%d to slot #%d, it appears to have been deleted."] = "Unable to restore macro id #%d to slot #%d, it appears to have been deleted.",
-	["Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet."] = "Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet.",
-	
-	["No errors found"] = "No errors found",
-	["Errors found: %d"] = "Errors found: %d",
-	["Restored profile %s, failed to restore %d buttons type /abs errors for more information."] = "Restored profile %s, failed to restore %d buttons type /abs errors for more information.",
-}
 
 function ABS:CompileMacroID(id)
 	local name, icon, text = GetMacroInfo(id)
@@ -75,6 +50,7 @@ function ABS:SaveActions(profile)
 	end
 	
 	self.db.profiles[profile] = list
+	self.db.profileData[profile] = charID
 end
 
 function ABS:GetActionID(id, type, idArg1, idArg2)
@@ -198,7 +174,8 @@ function ABS:LoadActions(profile)
 	end
 
 	-- Now set this as active profile
-	self.db.currentProfile = profile
+	self.db.currentProfiles[charID] = profile
+	self.db.profileData[profile] = charID
 	return true
 end
 
@@ -207,11 +184,19 @@ function ABS:OnInitialize()
 		ActionBSDB = {
 			profiles = {},
 			logout = true,
-			currentProfile = nil,
+			currentProfiles = {},
 		}
 	end
+		
+	charID = string.format("%s-%s", UnitName("player"), GetRealmName())
 	
 	self.db = setmetatable(ActionBSDB, {})
+	
+	if( not self.db.currentProfiles ) then
+		self.db.currentProfile = nil
+		self.db.currentProfiles = {}
+		self.db.profileData = {}
+	end
 	
 	SLASH_ACTIONBS1 = "/abs"
 	SLASH_ACTIONBS2 = "/actionbarsaver"
@@ -262,6 +247,8 @@ function ABS:OnInitialize()
 			end
 		
 		elseif( msg == "list" ) then
+			local profileList = {}
+			
 			self:Print(L["Profile List"])
 			for profile, info in pairs(self.db.profiles) do
 				local spells = 0
@@ -277,8 +264,24 @@ function ABS:OnInitialize()
 						items = items + 1
 					end
 				end
+
+				local text = string.format(L["%s (%d of 120, %d spells, %d macros, %d items)"], profile, spells + macros + items, spells, macros, items)
 				
-				DEFAULT_CHAT_FRAME:AddMessage(string.format(L["%s (%d of 120, %d spells, %d macros, %d items)"], profile, spells + macros + items, spells, macros, items))
+				local id = self.db.profileData[profile] or L["Miscellaneous"]
+				if( not profileList[id] ) then
+					profileList[id] = {}
+				end
+
+				table.insert(profileList[id], text)
+			end
+			
+			-- Now list categorized ones out
+			for profileName, profiles in pairs(profileList) do
+				DEFAULT_CHAT_FRAME:AddMessage(string.format("[|cff33ff99%s|r]", profileName))
+				
+				for _, text in pairs(profiles) do
+					DEFAULT_CHAT_FRAME:AddMessage(text)
+				end
 			end
 		
 		elseif( cmd == "delete" ) then
@@ -287,8 +290,8 @@ function ABS:OnInitialize()
 				self.db.profiles[data] = nil
 				
 				-- No longer the current profile
-				if( self.db.currentProfile == data ) then
-					self.db.currentProfile = nil
+				if( self.db.currentProfiles[charID] == data ) then
+					self.db.currentProfiles[charID] = nil
 				end
 				
 				self:Print(string.format(L["Deleted saved profile %s."], data))
@@ -328,8 +331,8 @@ frame:RegisterEvent("PLAYER_LOGOUT")
 frame:SetScript("OnEvent", function(self, event, addon)
 	if( event == "ADDON_LOADED" and addon == "ActionBarSaver" ) then
 		ABS.OnInitialize(ABS)
-	elseif( event == "PLAYER_LEAVING_WORLD" and ABS.db.logout and ABS.db.currentProfile ) then
-		ABS:SaveActions(ABS.db.currentProfile)
+	elseif( event == "PLAYER_LEAVING_WORLD" and ABS.db.logout and ABS.db.currentProfiles[charID] ) then
+		ABS:SaveActions(ABS.db.currentProfiles[charID])
 	end
 end)
 

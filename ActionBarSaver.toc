@@ -5,4 +5,8 @@
 ## Version: $Revision$
 ## SavedVariables: ActionBSDB
 
+localization.enUS.lua
+localization.deDE.lua
+localization.frFR.lua
+
 ActionBarSaver.lua
