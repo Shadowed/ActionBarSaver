@@ -250,6 +250,7 @@ function ABS:OnInitialize()
 		ActionBSDB = {
 			profiles = {},
 			currentProfiles = {},
+			profileData = {},
 			logout = false,
 			macro = false,
 		}
@@ -262,6 +263,9 @@ function ABS:OnInitialize()
 	if( not self.db.currentProfiles ) then
 		self.db.currentProfile = nil
 		self.db.currentProfiles = {}
+	end
+	
+	if( not self.db.profileData ) then
 		self.db.profileData = {}
 	end
 	
