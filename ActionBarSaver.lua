@@ -80,13 +80,25 @@ function ABS:GetActionID(id, type, idArg1, idArg2)
 	elseif( type == "macro" and idArg1 and idArg1 ~= "" ) then
 		id = tonumber(id)
 		
-		if( macroCache[id] == idArg1 ) then
-			return id
+		-- We check it as a name||body format instead of icon because Blizzards a pain in the ass
+		local name, _, icon, _, body = string.split("||", idArg1)
+		local macroID = string.format("%s||%s", name, body)
+
+		if( macroCache[id] ) then
+			local name, _, icon, _, body = string.split("||", macroCache[id])
+			local cacheID = string.format("%s||%s", name, body)
+			
+			if( cacheID == macroID ) then
+				return id
+			end
 		end
 		
 		-- Try and find a macro that matches our ID
-		for i, macroID in pairs(macroCache) do
-			if( macroID == idArg1 ) then
+		for i, mID in pairs(macroCache) do
+			local name, _, icon, _, body = string.split("||", macroCache[id])
+			local cacheID = string.format("%s||%s", name, body)
+
+			if( cacheID == macroID ) then
 				return i
 			end
 		end
@@ -167,7 +179,6 @@ function ABS:LoadActions(profile)
 
 					-- Create the actual macro
 					CreateMacro(name, iconCache[icon] or 1, macro, nil, perCharacter)
-					
 				end
 			end
 		end
@@ -418,3 +429,51 @@ frame:SetScript("OnEvent", function(self, event, addon)
 end)
 
 ABS.frame = frame
+
+
+local inspectSent
+local inspectQueue = {}
+local timeElapsed = 0
+local frame = CreateFrame("Frame")
+frame:Hide()
+
+-- Reset our flag early if we get the info
+frame:RegisterEvent("INSPECT_TALENT_READY")
+frame:SetScript("OnEvent", function(self)
+	inspectSent = nil
+	timeElapsed = 0
+	self:Hide()
+end)
+
+-- Time out after 3 seconds
+frame:SetScript("OnUpdate", function(self, elapsed)
+	timeElapsed = timeElapsed + elapsed
+	
+	if( timeElapsed >= 3 ) then
+		-- Reset counter/stop counting
+		timeElapsed = 0
+		inspectSent = nil
+		self:Hide()
+		
+		-- Inspection timed out, send next
+		if( #(inspectQueue) > 0 ) then
+			NotifyInspect(table.remove(inspectQueue, 1))
+		end
+	end
+end)
+
+-- Hook so we don't cause issues with other inspect addons
+hooksecurefunc("NotifyInspect", function(unit)
+	timeElapsed = 0
+	inspectSent = true
+	frame:Show()
+end)
+
+function queueInspect(unit)
+	if( inspectSent ) then
+		table.insert(inspectQueue, unit)
+		return
+	end
+	
+	NotifyInspect(unit)
+end
