@@ -45,14 +45,16 @@ function ABS:SaveActions(profile)
 				local spell, rank = GetSpellName(id, BOOKTYPE_SPELL)
 				if( spell ) then
 					if( rank and rank ~= "" ) then
-						list[i] = id .. ":" .. type .. ":" .. spell .. ":" .. rank
+						list[i] = id .. ":" .. type .. ":" .. (string.gsub(spell, ":", "|;|")) .. ":" .. rank
 					else
-						list[i] = id .. ":" .. type .. ":" .. spell
+						list[i] = id .. ":" .. type .. ":" .. (string.gsub(spell, ":", "|;|"))
 					end
 				end
 			elseif( type == "item" ) then
 				local name = GetItemInfo(id)
-				list[i] = id .. ":" .. type .. ":" .. (name or id)
+				local text = name or id
+				
+				list[i] = id .. ":" .. type .. ":" .. (string.gsub(text, ":", "|;|"))
 			elseif( type == "macro" ) then
 				list[i] = id .. ":" .. type .. ":" .. self:CompressMacro(id)
 			else
@@ -70,6 +72,8 @@ end
 function ABS:GetActionID(id, type, idArg1, idArg2)
 	-- Check the spellID via our cache
 	if( type == "spell" and idArg1 and idArg1 ~= "" ) then
+		idArg1 = string.gsub(idArg1, "|;|", ":")
+		ChatFrame1:AddMessage(tostring(idArg1))
 		if( idArg2 ) then
 			return spellCache[idArg1 .. idArg2]
 		else
@@ -82,11 +86,13 @@ function ABS:GetActionID(id, type, idArg1, idArg2)
 		
 		-- We check it as a name||body format instead of icon because Blizzards a pain in the ass
 		local name, _, icon, _, body = string.split("||", idArg1)
+		name = string.gsub(name, "|;|", ":")
+
 		local macroID = string.format("%s||%s", name, body)
 
 		if( macroCache[id] ) then
 			local name, _, icon, _, body = string.split("||", macroCache[id])
-			local cacheID = string.format("%s||%s", name, body)
+			local cacheID = string.format("%s||%s", name or "", body or "")
 			
 			if( cacheID == macroID ) then
 				return id
@@ -96,7 +102,7 @@ function ABS:GetActionID(id, type, idArg1, idArg2)
 		-- Try and find a macro that matches our ID
 		for i, mID in pairs(macroCache) do
 			local name, _, icon, _, body = string.split("||", macroCache[id])
-			local cacheID = string.format("%s||%s", name, body)
+			local cacheID = string.format("%s||%s", name or "", body or "")
 
 			if( cacheID == macroID ) then
 				return i
