@@ -73,7 +73,6 @@ function ABS:GetActionID(id, type, idArg1, idArg2)
 	-- Check the spellID via our cache
 	if( type == "spell" and idArg1 and idArg1 ~= "" ) then
 		idArg1 = string.gsub(idArg1, "|;|", ":")
-		ChatFrame1:AddMessage(tostring(idArg1))
 		if( idArg2 ) then
 			return spellCache[idArg1 .. idArg2]
 		else
