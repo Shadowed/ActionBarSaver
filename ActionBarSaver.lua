@@ -87,7 +87,7 @@ function ABS:GetActionID(id, type, idArg1, idArg2)
 		local name, _, icon, _, body = string.split("||", idArg1)
 		name = string.gsub(name, "|;|", ":")
 
-		local macroID = string.format("%s||%s", name, body)
+		local macroID = string.format("%s||%s", name or "", body or "")
 
 		if( macroCache[id] ) then
 			local name, _, icon, _, body = string.split("||", macroCache[id])
@@ -97,12 +97,12 @@ function ABS:GetActionID(id, type, idArg1, idArg2)
 				return id
 			end
 		end
-		
+
 		-- Try and find a macro that matches our ID
 		for i, mID in pairs(macroCache) do
-			local name, _, icon, _, body = string.split("||", macroCache[id])
+			local name, _, icon, _, body = string.split("||", mID)
 			local cacheID = string.format("%s||%s", name or "", body or "")
-
+			
 			if( cacheID == macroID ) then
 				return i
 			end
