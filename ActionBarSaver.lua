@@ -6,7 +6,7 @@ ABS = LibStub("AceAddon-3.0"):NewAddon("ABS", "AceEvent-3.0")
 
 local L = ActionBarSaverLocals
 
-local restoreErrors, spellCache, macroCache = {}, {}, {}
+local restoreErrors, spellCache, macroCache, highestRanks = {}, {}, {}, {}
 local iconCache, playerClass, isTournament
 
 local seasonItems = { [1] = L["^Gladiator"], [2] = L["^Merciless Gladiator"], [3] = L["^Vengeful Gladiator"], [4] = L["^Brutal Gladiator"] }
@@ -183,10 +183,12 @@ function ABS:RestoreProfile(name, overrideClass)
 		for i=1, numSpells do
 			local index = offset + i
 			local spell, rank = GetSpellName(index, BOOKTYPE_SPELL)
+			
+			-- This way we restore the max rank of spells
+			spellCache[spell] = index
+			
 			if( rank and rank ~= "" ) then
 				spellCache[spell .. rank] = index
-			else
-				spellCache[spell] = index
 			end
 		end
 	end
@@ -288,38 +290,75 @@ SlashCmdList["ABS"] = function(msg)
 	arg1 = string.lower(arg1 or "")
 	
 	local self = ABS
+	
+	-- Profile saving
 	if( cmd == "save" and arg1 ~= "" ) then
 		self:SaveProfile(arg1)
 	
+	-- Profile restoring
 	elseif( cmd == "restore" and arg1 ~= "" ) then
 		for i=#(restoreErrors), 1, -1 do table.remove(restoreErrors, i) end
 		
 		-- Backwards compat with the old versions format
-		local override
+		local profileCat = playerClass
 		if( not self.db.profile.sets[playerClass][arg1] and self.db.profile.sets.UNKNOWN[arg1] ) then
-			override = "UNKNOWN"
+			profileCat = "UNKNOWN"
 		end
 		
-		if( not self.db.profile.sets[override or playerClass][arg1] ) then
+		if( not self.db.profile.sets[profileCat][arg1] ) then
 			self:Print(string.format(L["Cannot restore profile \"%s\", you can only restore profiles saved to your class."], arg1))
 			return
 		end
 		
-		self:RestoreProfile(arg1, override)
+		self:RestoreProfile(arg1, profileCat)
 		
 		-- No errors, copy it to the new format
 		if( #(restoreErrors) == 0 ) then
 			if( overrideClass == "UNKNOWN" ) then
 				if( not self.db.profile.sets[playerClass][name] ) then
 					self.db.profile.sets[playerClass][name] = CopyTable(set)
-					self.db.profile.sets[overrideClass][name] = nil
+					self.db.profile.sets[profileCat][name] = nil
 				end
 
 				self:Print(string.format(L["The profile %s has been moved from the unknown category to %s."], name, (UnitClass("player"))))
 			end
 		end
-	
-	elseif( cmd == "error" ) then
+
+	-- Profile renaming
+	elseif( cmd == "rename" and arg1 ~= "" ) then
+		local old, new = string.split(" ", arg1, 2)
+		new = string.trim(new or "")
+		old = string.trim(old or "")
+		
+		if( new == old ) then
+			self:Print(string.format(L["You cannot rename \"%s\" to \"%s\" they are the same profile names."], old, new))
+			return
+		elseif( new == "" ) then
+			self:Print(string.format(L["No name specified to rename \"%s\" to."], old))
+			return
+		elseif( self.db.profile.sets[playerClass][new] ) then
+			self:Print(string.format(L["Cannot rename \"%s\" to \"%s\" a profile already exists for %s."], old, new, (UnitClass("player"))))
+			return
+		elseif( not self.db.profile.sets.UNKNOWN[old] and not self.db.profile.sets[playerClass][old] ) then
+			self:Print(string.format(L["No profile with the name \"%s\" exists."], old))
+			return
+		end
+		
+		-- Backwards compat
+		local profileCat = playerClass
+		local isListed = ""
+		if( self.db.profile.sets.UNKNOWN[old] and not self.db.profile.sets[playerClass][old] ) then
+			profileCat = "UNKNOWN"
+			isListed = string.format(L["Also moved from the unknown category to %s."], (UnitClass("player")))
+		end
+		
+		self.db.profile.sets[playerClass][new] = CopyTable(self.db.profile.sets[profileCat][old])
+		self.db.profile.sets[profileCat][old] = nil
+		
+		self:Print(string.format(L["Renamed \"%s\" to \"%s\". %s"], old, new, isListed))
+		
+	-- Restore errors
+	elseif( cmd == "errors" ) then
 		if( #(restoreErrors) == 0 ) then
 			self:Print(L["No errors found!"])
 			return
@@ -330,10 +369,13 @@ SlashCmdList["ABS"] = function(msg)
 			DEFAULT_CHAT_FRAME:AddMessage(text)
 		end
 
+	-- Delete profile
 	elseif( cmd == "delete" ) then
+		self.db.profile.sets.UNKNOWN[arg1] = nil
 		self.db.profile.sets[playerClass][arg1] = nil
 		self:Print(string.format(L["Deleted saved profile %s."], arg1))
 	
+	-- List profiles
 	elseif( cmd == "list" ) then
 		local classes = {}
 		local setList = {}
@@ -357,6 +399,7 @@ SlashCmdList["ABS"] = function(msg)
 			end
 		end
 		
+	-- Macro restoring
 	elseif( cmd == "macro" ) then
 		self.db.macro = not self.db.macro
 
@@ -365,7 +408,8 @@ SlashCmdList["ABS"] = function(msg)
 		else
 			self:Print(L["Auto macro restoration is now disabled!"])
 		end
-
+	
+	-- Item counts
 	elseif( cmd == "count" ) then
 		self.db.profile.checkCount = not self.db.profile.checkCount
 
@@ -374,11 +418,15 @@ SlashCmdList["ABS"] = function(msg)
 		else
 			self:Print(L["Checking item count is now disabled!"])		
 		end
+		
+	-- Halp
 	else
 		self:Print(L["Slash commands"])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs save <profile> - Saves your current action bar setup under the given profile."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs restore <profile> - Changes your action bars to the passed profile."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs delete <profile> - Deletes the saved profile."])
+		DEFAULT_CHAT_FRAME:AddMessage(L["/abs rename <oldProfile> <newProfile> - Renames a saved profile from oldProfile to newProfile."])
+		--DEFAULT_CHAT_FRAME:AddMessage(L["/abs test <profile> - Tests restoring a profile, results will be outputted to chat."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs count - Toggles checking if you have the item in your inventory before restoring it, use if you have disconnect issues when restoring."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs macro - Attempts to restore macros that have been deleted for a profile."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs errors - Lists the errors that happened on the last restore (if any)."])

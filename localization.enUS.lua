@@ -23,13 +23,15 @@ ActionBarSaverLocals = {
 	["/abs errors - Lists the errors that happened on the last restore (if any)."] = "/abs errors - Lists the errors that happened on the last restore (if any).",
 	["/abs macro - Attempts to restore macros that have been deleted for a profile."] = "/abs macro - Attempts to restore macros that have been deleted for a profile.",
 	["/abs count - Toggles checking if you have the item in your inventory before restoring it, use if you have disconnect issues when restoring."] = "/abs count - Toggles checking if you have the item in your inventory before restoring it, use if you have disconnect issues when restoring.",
+	["/abs test <profile> - Tests restoring a profile, results will be outputted to chat."] = "/abs test <profile> - Tests restoring a profile, results will be outputted to chat.",
+	["/abs rename <oldProfile> <newProfile> - Renames a saved profile from oldProfile to newProfile."] = "/abs rename <oldProfile> <newProfile> - Renames a saved profile from oldProfile to newProfile.",
 	
 	["Unable to restore item \"%s\" to slot #%d, you on the Arena Tournament Realms and attempting to restore that item would cause a disconnect."] = "Unable to restore item \"%s\" to slot #%d, you on the Arena Tournament Realms and attempting to restore that item would cause a disconnect.",
 	["Unable to restore item \"%s\" to slot #%d, cannot be found in inventory."] = "Unable to restore item \"%s\" to slot #%d, cannot be found in inventory.",
 	["Unable to restore macro id #%d to slot #%d, it appears to have been deleted."] = "Unable to restore macro id #%d to slot #%d, it appears to have been deleted.",
 	["Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet."] = "Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet.",
 	
-	["No errors found"] = "No errors found",
+	["No errors found!"] = "No errors found!",
 	["Errors found: %d"] = "Errors found: %d",
 	["Restored profile %s, failed to restore %d buttons type /abs errors for more information."] = "Restored profile %s, failed to restore %d buttons type /abs errors for more information.",
 	["The profile %s has been moved from the unknown category to %s."] = "The profile %s has been moved from the unknown category to %s.",
@@ -37,6 +39,14 @@ ActionBarSaverLocals = {
 	["Miscellaneous"] = "Miscellaneous",
 	["Unable to restore macros, you already have 18 global and 18 per character ones created."] = "Unable to restore macros, you already have 18 global and 18 per character ones created.",
 	["Cannot restore profile \"%s\", you can only restore profiles saved to your class."] = "Cannot restore profile \"%s\", you can only restore profiles saved to your class.",
+	["Cannot test restore profile \"%s\", you can only test restore profiles saved to your class."] = "Cannot test restore profile \"%s\", you can only test restore profiles saved to your class.",
+	
+	["Cannot rename \"%s\" to \"%s\" a profile already exists for %s."] = "Cannot rename \"%s\" to \"%s\" a profile already exists for %s.",
+	
+	["You cannot rename \"%s\" to \"%s\" they are the same profile names."] = "You cannot rename \"%s\" to \"%s\" they are the same profile names.",
+	["No name specified to rename \"%s\" to."] = "No name specified to rename \"%s\" to.",
+	["Renamed \"%s\" to \"%s\". %s"] = "Renamed \"%s\" to \"%s\". %s",
+	["Also moved from the unknown category to %s."] = "Also moved from the unknown category to %s.",
 	
 	-- Classes
 	["UNKNOWN"] = "Unknown",

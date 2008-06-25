@@ -1,5 +1,5 @@
 ## Interface: 20300
-## Title: Action Bar Saver
+## Title: Action Bar Saver 2
 ## Notes: Saves and restores your action bars
 ## Author: Mayen
 ## Version: $Revision$
