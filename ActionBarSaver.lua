@@ -25,6 +25,7 @@ function ABS:OnInitialize()
 	}
 
 	self.db = LibStub:GetLibrary("AceDB-3.0"):New("ActionBarSaverDB", self.defaults)
+	self.db:SetProfile("Global")
 	
 	-- Upgrade
 	if( ActionBSDB ) then
