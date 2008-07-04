@@ -7,9 +7,7 @@ ABS = LibStub("AceAddon-3.0"):NewAddon("ABS", "AceEvent-3.0")
 local L = ActionBarSaverLocals
 
 local restoreErrors, spellCache, macroCache, highestRanks = {}, {}, {}, {}
-local iconCache, playerClass, isTournament
-
-local seasonItems = { [1] = L["^Gladiator"], [2] = L["^Merciless Gladiator"], [3] = L["^Vengeful Gladiator"], [4] = L["^Brutal Gladiator"] }
+local iconCache, playerClass
 
 local MAX_MACROS = 36
 
@@ -27,22 +25,22 @@ function ABS:OnInitialize()
 	self.db = LibStub:GetLibrary("AceDB-3.0"):New("ActionBarSaverDB", self.defaults)
 	self.db:SetProfile("Global")
 	
+	for name in pairs(RAID_CLASS_COLORS) do
+		self.db.profile.sets[name] = self.db.profile.sets[name] or {}
+	end
+
 	-- Upgrade
 	if( ActionBSDB ) then
-		for name in pairs(RAID_CLASS_COLORS) do
-			self.db.profile.sets[name] = self.db.profile.sets[name] or {}
-		end
-		
 		for name, data in pairs(ActionBSDB.profiles) do
 			local actionData = {}
 			for id, line in pairs(data) do
 				local arg1, type, arg3 = string.split(":", line)
 				if( type == "spell" ) then
-					actionData[id] = string.format("%s|%d||%s", type, arg1, string.gsub(arg3, "|;|", ":"))	
+					actionData[id] = string.format("%s|%d||%s", type, arg1, string.gsub(arg3 or "", "|;|", ":"))	
 				elseif( type == "item" ) then
-					actionData[id] = string.format("%s|%d||%s", type, arg1, string.gsub(arg3, "|;|", ":"))
+					actionData[id] = string.format("%s|%d||%s", type, arg1, string.gsub(arg3 or "", "|;|", ":"))
 				elseif( type == "macro" ) then
-					local macro = select(5, string.split("||", string.gsub(arg3, "|;|", ":")))
+					local macro = select(5, string.split("||", string.gsub(arg3 or "", "|;|", ":")))
 					if( macro ) then
 						-- Strip the last /n to prevent any ID issues
 						macro = string.gsub(macro, "/n$", "")
@@ -204,9 +202,7 @@ function ABS:RestoreProfile(name, overrideClass)
 	if( self.db.profile.macro ) then
 		self:RestoreMacros(set)
 	end
-	
-	isTournement = string.match(GetRealmName(), "^Arena Tournament")
-	
+		
 	for i=1, 120 do
 		local type, id = GetActionInfo(i)
 		
@@ -246,14 +242,6 @@ function ABS:RestoreAction(i, type, actionID, binding, arg1, arg2, arg3)
 
 		PlaceAction(i)
 	elseif( type == "item" ) then
-		-- Check to prevent disconnects
-		if( isTournament and string.match(arg1, seasonItems[GetCurrentArenaSeason()]) ) then
-			table.insert(restoreErrors, string.format(L["Unable to restore item \"%s\" to slot #%d, you on the Arena Tournament Realms and attempting to restore that item would cause a disconnect."], arg1, i))
-			ClearCursor()
-			return
-		end
-		
-		
 		PickupItem(actionID)
 
 		if( GetCursorInfo() ~= type ) then
