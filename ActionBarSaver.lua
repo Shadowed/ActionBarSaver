@@ -129,21 +129,20 @@ function ABS:RestoreMacros(set)
 	for id, data in pairs(set) do
 		local type, id, binding, macroName, macroIcon, macroData = string.split("|", data)
 		if( type == "macro" ) then
-			local globalNum, charNum = GetNumMacros()
-
-			-- Make sure we aren't at the limit
-			if( globalNum == 18 and charNum == 18 ) then
-				table.insert(restoreErrors, L["Unable to restore macros, you already have 18 global and 18 per character ones created."])
-				break
-
-			-- We ran out of space for per character, so use global
-			elseif( charNum == 18 ) then
-				perCharacter = false
-			end
-			
 			-- Do we already have a macro?
 			local macroID = self:FindMacro(id, macroData)
 			if( not macroID ) then
+				local globalNum, charNum = GetNumMacros()
+				-- Make sure we aren't at the limit
+				if( globalNum == 18 and charNum == 18 ) then
+					table.insert(restoreErrors, L["Unable to restore macros, you already have 18 global and 18 per character ones created."])
+					break
+
+				-- We ran out of space for per character, so use global
+				elseif( charNum == 18 ) then
+					perCharacter = false
+				end
+
 				-- When creating a macro, we have to pass the icon id not the icon path
 				if( not iconCache ) then
 					iconCache = {}
@@ -185,12 +184,14 @@ function ABS:RestoreProfile(name, overrideClass)
 			
 			-- This way we restore the max rank of spells
 			spellCache[spell] = index
+			spellCache[string.lower(spell)] = index
 			
 			if( rank and rank ~= "" ) then
 				spellCache[spell .. rank] = index
 			end
 		end
 	end
+		
 	
 	-- Cache macros
 	for i=1, MAX_MACROS do
@@ -235,6 +236,18 @@ function ABS:RestoreAction(i, type, actionID, binding, arg1, arg2, arg3)
 		end
 		
 		if( GetCursorInfo() ~= type ) then
+			-- Bad restore, check if we should link at all
+			local lowerSpell = string.lower(arg1)
+			for spell, linked in pairs(self.db.profile.spellSubs) do
+				if( lowerSpell == spell and spellCache[linked] ) then
+					self:RestoreAction(i, type, actionID, binding, linked, nil, arg3)
+					return
+				elseif( lowerSpell == linked and spellCache[spell] ) then
+					self:RestoreAction(i, type, actionID, binding, spell, nil, arg3)
+					return
+				end
+			end
+			
 			table.insert(restoreErrors, string.format(L["Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet."], arg1, i))
 			ClearCursor()
 			return
@@ -284,6 +297,21 @@ SlashCmdList["ABS"] = function(msg)
 	if( cmd == "save" and arg1 ~= "" ) then
 		self:SaveProfile(arg1)
 	
+	-- Spell sub
+	elseif( cmd == "link" and arg1 ~= "" ) then
+		local first, second = string.match(arg1, "\"(.+)\" \"(.+)\"")
+		first = string.trim(first or "")
+		second = string.trim(second or "")
+		
+		if( first == "" or second == "" ) then
+			self:Print(L["Invalid spells passed, remember you must put quotes around both of them."])
+			return
+		end
+		
+		self.db.profile.spellSubs[first] = second
+		
+		self:Print(string.format(L["Spells \"%s\" and \"%s\" are now linked."], first, second))
+		
 	-- Profile restoring
 	elseif( cmd == "restore" and arg1 ~= "" ) then
 		for i=#(restoreErrors), 1, -1 do table.remove(restoreErrors, i) end
@@ -390,7 +418,7 @@ SlashCmdList["ABS"] = function(msg)
 		
 	-- Macro restoring
 	elseif( cmd == "macro" ) then
-		self.db.macro = not self.db.macro
+		self.db.profile.macro = not self.db.profile.macro
 
 		if( self.db.macro ) then
 			self:Print(L["Auto macro restoration is now enabled!"])
@@ -415,6 +443,7 @@ SlashCmdList["ABS"] = function(msg)
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs restore <profile> - Changes your action bars to the passed profile."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs delete <profile> - Deletes the saved profile."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs rename <oldProfile> <newProfile> - Renames a saved profile from oldProfile to newProfile."])
+		DEFAULT_CHAT_FRAME:AddMessage(L["/abs link \"<spell 1>\" \"<spell 2>\" - Links a spell with another, INCLUDE QUOTES for example you can use \"Shadowmeld\" \"War Stomp\" so if War Stomp can't be found, it'll use Shadowmeld and vica versa."])
 		--DEFAULT_CHAT_FRAME:AddMessage(L["/abs test <profile> - Tests restoring a profile, results will be outputted to chat."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs count - Toggles checking if you have the item in your inventory before restoring it, use if you have disconnect issues when restoring."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs macro - Attempts to restore macros that have been deleted for a profile."])
