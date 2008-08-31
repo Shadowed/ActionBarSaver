@@ -1,9 +1,10 @@
-## Interface: 20300
+## Interface: 20400
 ## Title: Action Bar Saver 2
 ## Notes: Saves and restores your action bars
 ## Author: Mayen
 ## Version: $Revision$
 ## SavedVariables: ActionBSDB, ActionBarSaverDB
+## OptionalDeps: Bazaar
 
 libs\LibStub-1.0\LibStub-1.0.xml
 libs\CallbackHandler-1.0\CallbackHandler-1.0.xml

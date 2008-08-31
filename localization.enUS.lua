@@ -52,6 +52,8 @@ ActionBarSaverLocals = {
 	["Renamed \"%s\" to \"%s\". %s"] = "Renamed \"%s\" to \"%s\". %s",
 	["Also moved from the unknown category to %s."] = "Also moved from the unknown category to %s.",
 	
+	["%s Profiles"] = "%s Profiles",
+	
 	-- Classes
 	["UNKNOWN"] = "Unknown",
 	["WARRIOR"] = "Warrior",
@@ -63,6 +65,7 @@ ActionBarSaverLocals = {
 	["MAGE"] = "Mage",
 	["HUNTER"] = "Hunter",
 	["ROGUE"] = "Rogue",
+	["DEATHKNIGHT"] = "Death Knight",
 	
 	-- Season items
 	["^Gladiator"] = "^Gladiator",

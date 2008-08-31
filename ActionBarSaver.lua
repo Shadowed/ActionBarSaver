@@ -10,6 +10,7 @@ local restoreErrors, spellCache, macroCache, highestRanks = {}, {}, {}, {}
 local iconCache, playerClass
 
 local MAX_MACROS = 36
+local MAX_CHAR_MACROS = 18
 
 function ABS:OnInitialize()
 	self.defaults = {
@@ -29,6 +30,12 @@ function ABS:OnInitialize()
 		self.db.profile.sets[name] = self.db.profile.sets[name] or {}
 	end
 
+	-- If it's wrath, we have more macros available
+	if( select(4, GetBuildInfo()) >= 30000 ) then
+		MAX_MACROS = 54
+		MAX_CHAR_MACROS = 36
+	end
+
 	-- Upgrade
 	if( ActionBSDB ) then
 		for name, data in pairs(ActionBSDB.profiles) do
@@ -44,7 +51,6 @@ function ABS:OnInitialize()
 					if( macro ) then
 						-- Strip the last /n to prevent any ID issues
 						macro = string.gsub(macro, "/n$", "")
-						
 						actionData[id] = string.format("%s|%d||%s", type, arg1, macro)
 					end
 				end
@@ -59,6 +65,9 @@ function ABS:OnInitialize()
 	end
 	
 	playerClass = select(2, UnitClass("player"))
+	
+	-- Wait until now so we're sure the sets are filled in
+	self:LoadBazaar()
 end
 
 -- Text "compression" so it can be stored in our format fine
@@ -134,12 +143,12 @@ function ABS:RestoreMacros(set)
 			if( not macroID ) then
 				local globalNum, charNum = GetNumMacros()
 				-- Make sure we aren't at the limit
-				if( globalNum == 18 and charNum == 18 ) then
+				if( globalNum == 18 and charNum == MAX_CHAR_MACROS ) then
 					table.insert(restoreErrors, L["Unable to restore macros, you already have 18 global and 18 per character ones created."])
 					break
 
 				-- We ran out of space for per character, so use global
-				elseif( charNum == 18 ) then
+				elseif( charNum == MAX_CHAR_MACROS ) then
 					perCharacter = false
 				end
 
@@ -450,4 +459,66 @@ SlashCmdList["ABS"] = function(msg)
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs errors - Lists the errors that happened on the last restore (if any)."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs list - Lists all saved profiles."])
 	end
+end
+
+-- Bazaar support
+function ABS:LoadBazaar()
+	if( not IsAddOnLoaded("Bazaar") ) then
+		return
+	end
+	
+	local Config = {}
+	function Config:Receive(data, categories)
+		local self = ABS
+		
+		for key in pairs(categories) do
+			if( key == "general" ) then
+				self.db.profile.macro = data.general.macro
+				self.db.profile.checkCount = data.general.checkCount
+				
+				-- Load our spells into this
+				for first, second in pairs(data.general.spellSubs) do
+					self.db.profile.spellSubs[first] = second
+				end
+			else
+				-- Merge the profiles
+				for name, data in pairs(data[key]) do
+					-- We already have a profile with this name, so append (sync) to it
+					if( self.db.profile.sets[key][name] ) then
+						name = string.format("(sync) %s", name)
+					end
+					
+					self.db.profile.sets[key][name] = data
+				end
+			end
+		end
+	end
+
+	function Config:Send(categories)
+		local config = {}
+		local self = ABS
+		
+		for key in pairs(categories) do
+			if( key == "general" ) then
+				config.general = {}
+				config.general.macro = self.db.profile.macro
+				config.general.checkCount = self.db.profile.checkCount
+				config.general.spellSubs = CopyTable(self.db.profile.spellSubs)
+			elseif( self.db.profile.sets[key] ) then
+				config[key] = CopyTable(self.db.profile.sets[key])
+			end
+		end
+
+		return config
+	end
+
+	local obj = Bazaar:RegisterAddOn("ActionBarSaver")
+	obj:RegisterCategory("general", "General")
+	
+	for name in pairs(self.db.profile.sets) do
+		obj:RegisterCategory(name, string.format(L["%s Profiles"], L[name] or name))
+	end
+	
+	obj:RegisterReceiveHandler(Config, "Receive")
+	obj:RegisterSendHandler(Config, "Send")
 end
