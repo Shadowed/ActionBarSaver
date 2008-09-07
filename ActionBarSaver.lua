@@ -31,10 +31,10 @@ function ABS:OnInitialize()
 	end
 
 	-- If it's wrath, we have more macros available
-	if( select(4, GetBuildInfo()) >= 30000 ) then
-		MAX_MACROS = 54
-		MAX_CHAR_MACROS = 36
-	end
+	--if( select(4, GetBuildInfo()) >= 30000 ) then
+	--	MAX_MACROS = 54
+	--	MAX_CHAR_MACROS = 36
+	--end
 
 	-- Upgrade
 	if( ActionBSDB ) then
@@ -429,7 +429,7 @@ SlashCmdList["ABS"] = function(msg)
 	elseif( cmd == "macro" ) then
 		self.db.profile.macro = not self.db.profile.macro
 
-		if( self.db.macro ) then
+		if( self.db.profile.macro ) then
 			self:Print(L["Auto macro restoration is now enabled!"])
 		else
 			self:Print(L["Auto macro restoration is now disabled!"])
@@ -439,7 +439,7 @@ SlashCmdList["ABS"] = function(msg)
 	elseif( cmd == "count" ) then
 		self.db.profile.checkCount = not self.db.profile.checkCount
 
-		if( self.db.logout ) then
+		if( self.db.profile.checkCount ) then
 			self:Print(L["Checking item count is now enabled!"])
 		else
 			self:Print(L["Checking item count is now disabled!"])		
