@@ -254,7 +254,10 @@ function ABS:RestoreProfile(name, overrideClass)
 	if( self.db.profile.macro ) then
 		self:RestoreMacros(set)
 	end
-		
+	
+	-- Start fresh with nothing on the cursor
+	ClearCursor()
+	
 	for i=1, 120 do
 		local type, id = GetActionInfo(i)
 		
@@ -515,7 +518,7 @@ end
 
 -- Bazaar support
 function ABS:LoadBazaar()
-	if( not IsAddOnLoaded("Bazaar") ) then
+	if( not Bazaar ) then
 		return
 	end
 	
