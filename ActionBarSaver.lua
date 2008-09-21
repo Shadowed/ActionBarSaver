@@ -2,15 +2,19 @@
 	Action Bar Saver, Mayen (Horde) from Icecrown (US) PvE
 ]]
 
-ABS = LibStub("AceAddon-3.0"):NewAddon("ABS", "AceEvent-3.0")
+ABS = LibStub("AceAddon-3.0"):NewAddon("ABS")
 
 local L = ActionBarSaverLocals
 
+local companions = {"critter", "mount"}
 local restoreErrors, spellCache, macroCache, highestRanks = {}, {}, {}, {}
 local iconCache, playerClass
 
 local MAX_MACROS = 36
 local MAX_CHAR_MACROS = 18
+local MAX_GLOBAL_MACROS = 18
+
+if( IS_WRATH_BUILD == nil ) then IS_WRATH_BUILD = (select(4, GetBuildInfo()) >= 30000) end
 
 function ABS:OnInitialize()
 	self.defaults = {
@@ -31,10 +35,10 @@ function ABS:OnInitialize()
 	end
 
 	-- If it's wrath, we have more macros available
-	--if( select(4, GetBuildInfo()) >= 30000 ) then
-	--	MAX_MACROS = 54
-	--	MAX_CHAR_MACROS = 36
-	--end
+	if( IS_WRATH_BUILD ) then
+		MAX_MACROS = 54
+		MAX_GLOBAL_MACROS = 36
+	end
 
 	-- Upgrade
 	if( ActionBSDB ) then
@@ -86,17 +90,55 @@ function ABS:UncompressText(text)
 	return string.trim(text)
 end
 
+function ABS:GetCompanionInfo(id)
+	if( not self.tooltip ) then
+		self.tooltip = CreateFrame("GameTooltip", "ABSTooltip", UIParent, "GameTooltipTemplate")
+		self.tooltip:SetOwner(UIParent, "ANCHOR_NONE")
+	end
+	
+	self.tooltip:SetAction(id)
+	
+	local text = ABSTooltipTextLeft1:GetText()
+	local cast = ABSTooltipTextLeft2:GetText()
+	if( not text or not cast ) then
+		return
+	end
+	
+	local type = "mount"
+	if( cast == L["Instant"] ) then
+		type = "critter"
+	end
+	
+	for i=1, GetNumCompanions(type) do
+		local id, name, spellID, icon, isActive = GetCompanionInfo(type, i)
+		if( text == name ) then
+			return type, i, name
+		end
+	end
+end
+
 -- Restore a saved profile
 function ABS:SaveProfile(name)
 	self.db.profile.sets[playerClass][name] = self.db.profile.sets[playerClass][name] or {}
 	local set = self.db.profile.sets[playerClass][name]
 	
 	for id=1, 120 do
-		local type, actionID = GetActionInfo(id)
 		set[id] = nil
 		
+		local type, actionID = GetActionInfo(id)
 		if( type and actionID ) then
 			local binding = ""
+			
+			-- If actionID is 0, it's likely a companion, if we can find the companion then we process it
+			-- otherwise will pass it to our standard handler
+			if( type == "spell" and actionID == 0 and IS_WRATH_BUILD ) then
+				local newType, newID, newName = self:GetCompanionInfo(id)
+				if( newType ) then
+					set[id] = string.format("%s|%d|%s|%s", newType, newID, binding, newName)
+					type = ""
+				end
+			end
+			
 			if( type == "spell" ) then
 				local spell, rank = GetSpellName(actionID, BOOKTYPE_SPELL)
 				if( spell ) then
@@ -143,7 +185,7 @@ function ABS:RestoreMacros(set)
 			if( not macroID ) then
 				local globalNum, charNum = GetNumMacros()
 				-- Make sure we aren't at the limit
-				if( globalNum == 18 and charNum == MAX_CHAR_MACROS ) then
+				if( globalNum == MAX_GLOBAL_MACROS and charNum == MAX_CHAR_MACROS ) then
 					table.insert(restoreErrors, L["Unable to restore macros, you already have 18 global and 18 per character ones created."])
 					break
 
@@ -262,6 +304,16 @@ function ABS:RestoreAction(i, type, actionID, binding, arg1, arg2, arg3)
 			return
 		end
 
+		PlaceAction(i)
+	
+	elseif( type == "critter" or type == "mount" ) then
+		PickupCompanion(type, actionID)
+		if( GetCursorInfo() ~= "spell" ) then
+			table.insert(restoreErrors, string.format(L["Unable to restore companion \"%s\" to slot #%d, it does not appear to exist yet."], arg1, i))
+			ClearCursor()
+			return
+		end
+		
 		PlaceAction(i)
 	elseif( type == "item" ) then
 		PickupItem(actionID)
