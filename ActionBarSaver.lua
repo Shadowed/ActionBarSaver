@@ -10,11 +10,9 @@ local companions = {"critter", "mount"}
 local restoreErrors, spellCache, macroCache, highestRanks = {}, {}, {}, {}
 local iconCache, playerClass
 
-local MAX_MACROS = 36
+local MAX_MACROS = 54
 local MAX_CHAR_MACROS = 18
-local MAX_GLOBAL_MACROS = 18
-
-if( IS_WRATH_BUILD == nil ) then IS_WRATH_BUILD = (select(4, GetBuildInfo()) >= 30000) end
+local MAX_GLOBAL_MACROS = 36
 
 function ABS:OnInitialize()
 	self.defaults = {
@@ -32,12 +30,6 @@ function ABS:OnInitialize()
 	
 	for name in pairs(RAID_CLASS_COLORS) do
 		self.db.profile.sets[name] = self.db.profile.sets[name] or {}
-	end
-
-	-- If it's wrath, we have more macros available
-	if( IS_WRATH_BUILD ) then
-		MAX_MACROS = 54
-		MAX_GLOBAL_MACROS = 36
 	end
 
 	-- Upgrade
@@ -99,20 +91,18 @@ function ABS:GetCompanionInfo(id)
 	self.tooltip:SetAction(id)
 	
 	local text = ABSTooltipTextLeft1:GetText()
-	local cast = ABSTooltipTextLeft2:GetText()
-	if( not text or not cast ) then
+	if( not text ) then
 		return
 	end
 	
-	local type = "mount"
-	if( cast == L["Instant"] ) then
-		type = "critter"
-	end
-	
-	for i=1, GetNumCompanions(type) do
-		local id, name, spellID, icon, isActive = GetCompanionInfo(type, i)
-		if( text == name ) then
-			return type, i, name
+	for _, type in pairs(companions) do
+		for i=1, GetNumCompanions(type) do
+			local id, name, spellID, icon, isActive = GetCompanionInfo(type, i)
+			self.tooltip:SetHyperlink(string.format("spell:%d", spellID))
+			
+			if( text == ABSTooltipTextLeft1:GetText() ) then
+				return type, i, text
+			end
 		end
 	end
 end
@@ -131,7 +121,7 @@ function ABS:SaveProfile(name)
 			
 			-- If actionID is 0, it's likely a companion, if we can find the companion then we process it
 			-- otherwise will pass it to our standard handler
-			if( type == "spell" and actionID == 0 and IS_WRATH_BUILD ) then
+			if( type == "spell" and actionID == 0 ) then
 				local newType, newID, newName = self:GetCompanionInfo(id)
 				if( newType ) then
 					set[id] = string.format("%s|%d|%s|%s", newType, newID, binding, newName)

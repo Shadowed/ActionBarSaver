@@ -1,4 +1,4 @@
---[[ $Id: AceAddon-3.0.lua 76326 2008-06-09 09:29:17Z nevcairiel $ ]]
+--[[ $Id: AceAddon-3.0.lua 654 2008-05-21 13:43:29Z ammo $ ]]
 local MAJOR, MINOR = "AceAddon-3.0", 5
 local AceAddon, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 

@@ -1,4 +1,4 @@
---[[ $Id: AceDB-3.0.lua 81438 2008-09-06 13:44:36Z nevcairiel $ ]]
+--[[ $Id: AceDB-3.0.lua 667 2008-06-11 14:34:58Z nevcairiel $ ]]
 local ACEDB_MAJOR, ACEDB_MINOR = "AceDB-3.0", 8
 local AceDB, oldminor = LibStub:NewLibrary(ACEDB_MAJOR, ACEDB_MINOR)
 
