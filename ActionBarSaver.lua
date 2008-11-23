@@ -211,6 +211,9 @@ function ABS:RestoreProfile(name, overrideClass)
 	if( not set ) then
 		self:Print(string.format(L["No profile with the name \"%s\" exists."], set))
 		return
+	elseif( InCombatLockdown() ) then
+		self:Print(String.format(L["Unable to restore profile \"%s\", you are in combat."], set))
+		return
 	end
 	
 	-- Cache spells
@@ -273,10 +276,10 @@ end
 
 function ABS:RestoreAction(i, type, actionID, binding, arg1, arg2, arg3)
 	if( type == "spell" ) then
-		if( arg2 and arg2 ~= "" and spellCache[arg1 .. arg2] ) then
-			PickupSpell(spellCache[arg1 .. arg2], BOOKTYPE_SPELL)
-		elseif( spellCache[arg1] ) then
+		if( spellCache[arg1] ) then
 			PickupSpell(spellCache[arg1], BOOKTYPE_SPELL)
+		elseif( arg2 ~= "" and spellCache[arg1 .. arg2] ) then
+			PickupSpell(spellCache[arg1 .. arg2], BOOKTYPE_SPELL)
 		end
 		
 		if( GetCursorInfo() ~= type ) then

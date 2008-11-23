@@ -17,7 +17,7 @@ ActionBarSaverLocals = {
 	["Auto profile save on logout is disabled!"] = "Auto profile save on logout is disabled!",
 	["Auto macro restoration is now enabled!"] = "Auto macro restoration is now enabled!",
 	["Auto macro restoration is now disabled!"] = "Auto macro restoration is now disabled!",
-	
+		
 	["/abs save <profile> - Saves your current action bar setup under the given profile."] = "/abs save <profile> - Saves your current action bar setup under the given profile.",
 	["/abs restore <profile> - Changes your action bars to the passed profile."] = "/abs restore <profile> - Changes your action bars to the passed profile.",
 	["/abs delete <profile> - Deletes the saved profile."] = "/abs delete <profile> - Deletes the saved profile.",
@@ -30,6 +30,7 @@ ActionBarSaverLocals = {
 	["/abs rename <oldProfile> <newProfile> - Renames a saved profile from oldProfile to newProfile."] = "/abs rename <oldProfile> <newProfile> - Renames a saved profile from oldProfile to newProfile.",
 	["/abs link \"<spell 1>\" \"<spell 2>\" - Links a spell with another, INCLUDE QUOTES for example you can use \"Shadowmeld\" \"War Stomp\" so if War Stomp can't be found, it'll use Shadowmeld and vica versa."] = "/abs link \"<spell 1>\" \"<spell 2>\" - Links a spell with another, INCLUDE QUOTES for example you can use \"Shadowmeld\" \"War Stomp\" so if War Stomp can't be found, it'll use Shadowmeld and vica versa.",
 	
+	["Unable to restore profile \"%s\", you are in combat."] = "Unable to restore profile \"%s\", you are in combat.",
 	["Unable to restore item \"%s\" to slot #%d, you on the Arena Tournament Realms and attempting to restore that item would cause a disconnect."] = "Unable to restore item \"%s\" to slot #%d, you on the Arena Tournament Realms and attempting to restore that item would cause a disconnect.",
 	["Unable to restore item \"%s\" to slot #%d, cannot be found in inventory."] = "Unable to restore item \"%s\" to slot #%d, cannot be found in inventory.",
 	["Unable to restore macro id #%d to slot #%d, it appears to have been deleted."] = "Unable to restore macro id #%d to slot #%d, it appears to have been deleted.",
