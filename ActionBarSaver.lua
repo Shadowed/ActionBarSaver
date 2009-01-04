@@ -19,6 +19,7 @@ function ABS:OnInitialize()
 		profile = {
 			macro = false,
 			checkCount = false,
+			restoreRank = true,
 			
 			spellSubs = {},
 			sets = {UNKNOWN = {}},
@@ -276,10 +277,20 @@ end
 
 function ABS:RestoreAction(i, type, actionID, binding, arg1, arg2, arg3)
 	if( type == "spell" ) then
-		if( spellCache[arg1] ) then
-			PickupSpell(spellCache[arg1], BOOKTYPE_SPELL)
-		elseif( arg2 ~= "" and spellCache[arg1 .. arg2] ) then
-			PickupSpell(spellCache[arg1 .. arg2], BOOKTYPE_SPELL)
+		-- Restore the highest rank first if we can, or the specific rank otherwise
+		if( self.db.profile.restoreRank ) then
+			if( spellCache[arg1] ) then
+				PickupSpell(spellCache[arg1], BOOKTYPE_SPELL)
+			elseif( arg2 ~= "" and spellCache[arg1 .. arg2] ) then
+				PickupSpell(spellCache[arg1 .. arg2], BOOKTYPE_SPELL)
+			end
+		-- Restore the rank we saved
+		else
+			if( arg2 ~= "" and spellCache[arg1 .. arg2] ) then
+				PickupSpell(spellCache[arg1 .. arg2], BOOKTYPE_SPELL)
+			elseif( spellCache[arg1] ) then
+				PickupSpell(spellCache[arg1], BOOKTYPE_SPELL)
+			end
 		end
 		
 		if( GetCursorInfo() ~= type ) then
@@ -492,6 +503,16 @@ SlashCmdList["ABS"] = function(msg)
 		else
 			self:Print(L["Checking item count is now disabled!"])		
 		end
+	
+	-- Rank restore
+	elseif( cmd == "rank" ) then
+		self.db.profile.restoreRank = not self.db.profile.restoreRank
+		
+		if( self.db.profile.restoreRank ) then
+			self:Print(L["Auto restoring highest spell rank is now enabled!"])
+		else
+			self:Print(L["Auto restoring highest spell rank is now disabled!"])
+		end
 		
 	-- Halp
 	else
@@ -504,7 +525,8 @@ SlashCmdList["ABS"] = function(msg)
 		--DEFAULT_CHAT_FRAME:AddMessage(L["/abs test <profile> - Tests restoring a profile, results will be outputted to chat."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs count - Toggles checking if you have the item in your inventory before restoring it, use if you have disconnect issues when restoring."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs macro - Attempts to restore macros that have been deleted for a profile."])
-		DEFAULT_CHAT_FRAME:AddMessage(L["/abs errors - Lists the errors that happened on the last restore (if any)."])
+		DEFAULT_CHAT_FRAME:AddMessage(L["/abs rank - Toggles if ABS should restore the highest rank of the spell, or the one saved originally."])
+		--DEFAULT_CHAT_FRAME:AddMessage(L["/abs errors - Lists the errors that happened on the last restore (if any)."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs list - Lists all saved profiles."])
 	end
 end

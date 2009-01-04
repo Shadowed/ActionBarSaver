@@ -29,6 +29,8 @@ ActionBarSaverLocals = {
 	["/abs test <profile> - Tests restoring a profile, results will be outputted to chat."] = "/abs test <profile> - Tests restoring a profile, results will be outputted to chat.",
 	["/abs rename <oldProfile> <newProfile> - Renames a saved profile from oldProfile to newProfile."] = "/abs rename <oldProfile> <newProfile> - Renames a saved profile from oldProfile to newProfile.",
 	["/abs link \"<spell 1>\" \"<spell 2>\" - Links a spell with another, INCLUDE QUOTES for example you can use \"Shadowmeld\" \"War Stomp\" so if War Stomp can't be found, it'll use Shadowmeld and vica versa."] = "/abs link \"<spell 1>\" \"<spell 2>\" - Links a spell with another, INCLUDE QUOTES for example you can use \"Shadowmeld\" \"War Stomp\" so if War Stomp can't be found, it'll use Shadowmeld and vica versa.",
+	["/abs rank - Toggles if ABS should restore the highest rank of the spell, or the one saved originally."] = "/abs rank - Toggles if ABS should restore the highest rank of the spell, or the one saved originally.",
+	
 	
 	["Unable to restore profile \"%s\", you are in combat."] = "Unable to restore profile \"%s\", you are in combat.",
 	["Unable to restore item \"%s\" to slot #%d, you on the Arena Tournament Realms and attempting to restore that item would cause a disconnect."] = "Unable to restore item \"%s\" to slot #%d, you on the Arena Tournament Realms and attempting to restore that item would cause a disconnect.",
@@ -46,6 +48,8 @@ ActionBarSaverLocals = {
 	["Unable to restore macros, you already have 18 global and 18 per character ones created."] = "Unable to restore macros, you already have 18 global and 18 per character ones created.",
 	["Cannot restore profile \"%s\", you can only restore profiles saved to your class."] = "Cannot restore profile \"%s\", you can only restore profiles saved to your class.",
 	["Cannot test restore profile \"%s\", you can only test restore profiles saved to your class."] = "Cannot test restore profile \"%s\", you can only test restore profiles saved to your class.",
+	["Auto restoring highest spell rank is now enabled!"] = "Auto restoring highest spell rank is now enabled!",
+	["Auto restoring highest spell rank is now disabled!"] = "Auto restoring highest spell rank is now disabeld!",
 	
 	["Cannot rename \"%s\" to \"%s\" a profile already exists for %s."] = "Cannot rename \"%s\" to \"%s\" a profile already exists for %s.",
 	
