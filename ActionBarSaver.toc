@@ -5,6 +5,8 @@
 ## Version: $Revision$
 ## SavedVariables: ActionBSDB, ActionBarSaverDB
 ## OptionalDeps: Bazaar
+## LoadManagers: AddonLoader
+## X-LoadOn-Slash: /actionbarsaver, /abs
 
 libs\LibStub-1.0\LibStub-1.0.xml
 libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
