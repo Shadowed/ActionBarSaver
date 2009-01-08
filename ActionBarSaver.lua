@@ -83,6 +83,7 @@ function ABS:UncompressText(text)
 	return string.trim(text)
 end
 
+local lastRun
 function ABS:GetCompanionInfo(id)
 	if( not self.tooltip ) then
 		self.tooltip = CreateFrame("GameTooltip", "ABSTooltip", UIParent, "GameTooltipTemplate")
@@ -93,19 +94,28 @@ function ABS:GetCompanionInfo(id)
 	
 	local text = ABSTooltipTextLeft1:GetText()
 	if( not text ) then
-		return
+		lastRun = "Failed to get data on the first tooltip check"
+		return nil, nil, nil
 	end
 	
+	local totalScanned = 0
 	for _, type in pairs(companions) do
 		for i=1, GetNumCompanions(type) do
 			local id, name, spellID, icon, isActive = GetCompanionInfo(type, i)
+			self.tooltip:ClearLines()
 			self.tooltip:SetHyperlink(string.format("spell:%d", spellID))
 			
+			totalScanned = totalScanned + 1
+			
 			if( text == ABSTooltipTextLeft1:GetText() ) then
+				lastRun = string.format("Found pet succesfully: %s, %s, %s", type or "nil", i or "nil", text or "nil")
 				return type, i, text
 			end
 		end
 	end
+	
+	lastRun = string.format("Ran through everything: %s", totalScanned)
+	return nil, nil, nil
 end
 
 -- Restore a saved profile
@@ -126,11 +136,13 @@ function ABS:SaveProfile(name)
 				local newType, newID, newName = self:GetCompanionInfo(id)
 				if( newType ) then
 					set[id] = string.format("%s|%d|%s|%s", newType, newID, binding, newName)
-					type = ""
+				else
+					self:Print(string.format("Failed to save companion: ID %s, AType %s, AID %s, type %s, NID %s, NName %s.", id or "nil", type or "nil", actionID or "nil", newType or "nil", newID or "nil", newName or "nil"))
+					DEFAULT_CHAT_FRAME:AddMessage(string.format("Companion data: %s", lastRun or "nil"))
+					DEFAULT_CHAT_FRAME:AddMessage("PLEASE! Post this on WoWInterface.com under the ActionBarSaver so I can figure out and fix this bug!")
 				end
-			end
-			
-			if( type == "spell" ) then
+				
+			elseif( type == "spell" ) then
 				local spell, rank = GetSpellName(actionID, BOOKTYPE_SPELL)
 				if( spell ) then
 					set[id] = string.format("%s|%d|%s|%s|%s", type, actionID, binding, spell or "", rank or "")
