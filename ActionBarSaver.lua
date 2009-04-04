@@ -6,14 +6,12 @@ ABS = {}
 
 local L = ActionBarSaverLocals
 
-local companions = {"critter", "mount"}
 local restoreErrors, spellCache, macroCache, highestRanks = {}, {}, {}, {}
 local iconCache, playerClass
 
 local MAX_MACROS = 54
 local MAX_CHAR_MACROS = 18
 local MAX_GLOBAL_MACROS = 36
-local IS_31000
 
 function ABS:OnInitialize()
 	local defaults = {
@@ -21,7 +19,7 @@ function ABS:OnInitialize()
 		checkCount = false,
 		restoreRank = true,
 		spellSubs = {},
-		sets = {UNKNOWN = {}}
+		sets = {}
 	}
 	
 	ActionBarSaverDB = ActionBarSaverDB or {}
@@ -42,11 +40,6 @@ function ABS:OnInitialize()
 	self.db = ActionBarSaverDB
 	
 	playerClass = select(2, UnitClass("player"))
-	
-	-- Is it 3.1?
-	if( select(4, GetBuildInfo()) >= 31000 ) then
-		IS_31000 = true
-	end
 end
 
 -- Check if were still using the Ace3 DB format
@@ -77,37 +70,6 @@ function ABS:UncompressText(text)
 	return string.trim(text)
 end
 
-function ABS:GetCompanionInfo(id)
-	if( not self.tooltip ) then
-		self.tooltip = CreateFrame("GameTooltip", "ABSTooltip", UIParent, "GameTooltipTemplate")
-		self.tooltip:SetOwner(UIParent, "ANCHOR_NONE")
-	end
-	
-	self.tooltip:SetAction(id)
-	
-	local text = ABSTooltipTextLeft1:GetText()
-	if( not text ) then
-		return nil, nil, nil
-	end
-	
-	local totalScanned = 0
-	for _, type in pairs(companions) do
-		for i=1, GetNumCompanions(type) do
-			local id, name, spellID, icon, isActive = GetCompanionInfo(type, i)
-			self.tooltip:ClearLines()
-			self.tooltip:SetHyperlink(string.format("spell:%d", spellID))
-			
-			totalScanned = totalScanned + 1
-			
-			if( text == ABSTooltipTextLeft1:GetText() ) then
-				return type, i, text
-			end
-		end
-	end
-	
-	return nil, nil, nil
-end
-
 -- Restore a saved profile
 function ABS:SaveProfile(name)
 	self.db.sets[playerClass][name] = self.db.sets[playerClass][name] or {}
@@ -126,22 +88,16 @@ function ABS:SaveProfile(name)
 			elseif( type == "item" ) then
 				set[actionID] = string.format("%s|%d|%s|%s", type, id, "", (GetItemInfo(id)) or "")
 			-- Save a spell
-			elseif( type == "spell" ) then
+			elseif( type == "spell" and id > 0 ) then
 				local spell, rank = GetSpellName(id, BOOKTYPE_SPELL)
 				if( spell ) then
 					set[actionID] = string.format("%s|%d|%s|%s|%s|%s", type, id, "", spell, rank or "", extraID or "")
 				end
 			-- Save a macro
 			elseif( type == "macro" ) then
-				local name, icon, macro = GetMacroInfo(actionID)
+				local name, icon, macro = GetMacroInfo(id)
 				if( name and icon and macro ) then
 					set[actionID] = string.format("%s|%d|%s|%s|%s|%s", type, actionID, "", self:CompressText(name), icon, self:CompressText(macro))
-				end
-			-- Save a companion using the hack method
-			elseif( not IS_31000 and type == "spell" and id == 0 ) then
-				local newType, newID, newName = self:GetCompanionInfo(id)
-				if( newType ) then
-					set[actionID] = string.format("%s|%d|%s|%s", newType, newID, "", newName)
 				end
 			end
 		end
@@ -308,16 +264,6 @@ function ABS:RestoreAction(i, type, actionID, binding, ...)
 		end
 
 		PlaceAction(i)
-	-- Restore a 3.0 saved critter/mount
-	elseif( type == "critter" or type == "mount" ) then
-		PickupCompanion(type, actionID)
-		if( GetCursorInfo() ~= "spell" ) then
-			table.insert(restoreErrors, string.format(L["Unable to restore companion \"%s\" to slot #%d, it does not appear to exist yet."], (select(i, ...)), i))
-			ClearCursor()
-			return
-		end
-		
-		PlaceAction(i)
 	-- Restore a 3.1 saved companion
 	elseif( type == "companion" ) then
 		local critterName, critterType, critterID = ...
@@ -391,32 +337,14 @@ SlashCmdList["ABS"] = function(msg)
 	-- Profile restoring
 	elseif( cmd == "restore" and arg ~= "" ) then
 		for i=#(restoreErrors), 1, -1 do table.remove(restoreErrors, i) end
-		
-		-- Backwards compat with the old versions format
-		local profileCat = playerClass
-		if( not self.db.sets[playerClass][arg] and self.db.sets.UNKNOWN[arg] ) then
-			profileCat = "UNKNOWN"
-		end
-		
-		if( not self.db.sets[profileCat][arg] ) then
+				
+		if( not self.db.sets[playerClass][arg] ) then
 			self:Print(string.format(L["Cannot restore profile \"%s\", you can only restore profiles saved to your class."], arg))
 			return
 		end
 		
-		self:RestoreProfile(arg, profileCat)
+		self:RestoreProfile(arg, playerClass)
 		
-		-- No errors, copy it to the new format
-		if( #(restoreErrors) == 0 ) then
-			if( overrideClass == "UNKNOWN" ) then
-				if( not self.db.sets[playerClass][name] ) then
-					self.db.sets[playerClass][name] = CopyTable(set)
-					self.db.sets[profileCat][name] = nil
-				end
-
-				self:Print(string.format(L["The profile %s has been moved from the unknown category to %s."], name, (UnitClass("player"))))
-			end
-		end
-
 	-- Profile renaming
 	elseif( cmd == "rename" and arg ~= "" ) then
 		local old, new = string.split(" ", arg, 2)
@@ -432,23 +360,17 @@ SlashCmdList["ABS"] = function(msg)
 		elseif( self.db.sets[playerClass][new] ) then
 			self:Print(string.format(L["Cannot rename \"%s\" to \"%s\" a profile already exists for %s."], old, new, (UnitClass("player"))))
 			return
-		elseif( not self.db.sets.UNKNOWN[old] and not self.db.sets[playerClass][old] ) then
+		elseif( not self.db.sets[playerClass][old] ) then
 			self:Print(string.format(L["No profile with the name \"%s\" exists."], old))
 			return
 		end
 		
 		-- Backwards compat
 		local profileCat = playerClass
-		local isListed = ""
-		if( self.db.sets.UNKNOWN[old] and not self.db.sets[playerClass][old] ) then
-			profileCat = "UNKNOWN"
-			isListed = string.format(L["Also moved from the unknown category to %s."], (UnitClass("player")))
-		end
-		
 		self.db.sets[playerClass][new] = CopyTable(self.db.sets[profileCat][old])
 		self.db.sets[profileCat][old] = nil
 		
-		self:Print(string.format(L["Renamed \"%s\" to \"%s\". %s"], old, new, isListed))
+		self:Print(string.format(L["Renamed \"%s\" to \"%s\""], old, new))
 		
 	-- Restore errors
 	elseif( cmd == "errors" ) then
@@ -464,7 +386,6 @@ SlashCmdList["ABS"] = function(msg)
 
 	-- Delete profile
 	elseif( cmd == "delete" ) then
-		self.db.sets.UNKNOWN[arg] = nil
 		self.db.sets[playerClass][arg] = nil
 		self:Print(string.format(L["Deleted saved profile %s."], arg))
 	

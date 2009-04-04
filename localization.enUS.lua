@@ -55,7 +55,7 @@ ActionBarSaverLocals = {
 	
 	["You cannot rename \"%s\" to \"%s\" they are the same profile names."] = "You cannot rename \"%s\" to \"%s\" they are the same profile names.",
 	["No name specified to rename \"%s\" to."] = "No name specified to rename \"%s\" to.",
-	["Renamed \"%s\" to \"%s\". %s"] = "Renamed \"%s\" to \"%s\". %s",
+	["Renamed \"%s\" to \"%s\""] = "Renamed \"%s\" to \"%s\"",
 	["Also moved from the unknown category to %s."] = "Also moved from the unknown category to %s.",
 	
 	["%s Profiles"] = "%s Profiles",
