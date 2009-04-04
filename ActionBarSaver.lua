@@ -1,8 +1,8 @@
 --[[ 
-	Action Bar Saver, Mayen (Horde) from Icecrown (US) PvE
+	Action Bar Saver, Mayen/Selari (Horde) from Illidan (US) PvP
 ]]
 
-ABS = LibStub("AceAddon-3.0"):NewAddon("ABS")
+ABS = {}
 
 local L = ActionBarSaverLocals
 
@@ -13,58 +13,52 @@ local iconCache, playerClass
 local MAX_MACROS = 54
 local MAX_CHAR_MACROS = 18
 local MAX_GLOBAL_MACROS = 36
+local IS_31000
 
 function ABS:OnInitialize()
-	self.defaults = {
-		profile = {
-			macro = false,
-			checkCount = false,
-			restoreRank = true,
-			
-			spellSubs = {},
-			sets = {UNKNOWN = {}},
-		},
+	local defaults = {
+		macro = false,
+		checkCount = false,
+		restoreRank = true,
+		spellSubs = {},
+		sets = {UNKNOWN = {}}
 	}
-
-	self.db = LibStub:GetLibrary("AceDB-3.0"):New("ActionBarSaverDB", self.defaults)
-	self.db:SetProfile("Global")
 	
-	for name in pairs(RAID_CLASS_COLORS) do
-		self.db.profile.sets[name] = self.db.profile.sets[name] or {}
-	end
-
-	-- Upgrade
-	if( ActionBSDB ) then
-		for name, data in pairs(ActionBSDB.profiles) do
-			local actionData = {}
-			for id, line in pairs(data) do
-				local arg1, type, arg3 = string.split(":", line)
-				if( type == "spell" ) then
-					actionData[id] = string.format("%s|%d||%s", type, arg1, string.gsub(arg3 or "", "|;|", ":"))	
-				elseif( type == "item" ) then
-					actionData[id] = string.format("%s|%d||%s", type, arg1, string.gsub(arg3 or "", "|;|", ":"))
-				elseif( type == "macro" ) then
-					local macro = select(5, string.split("||", string.gsub(arg3 or "", "|;|", ":")))
-					if( macro ) then
-						-- Strip the last /n to prevent any ID issues
-						macro = string.gsub(macro, "/n$", "")
-						actionData[id] = string.format("%s|%d||%s", type, arg1, macro)
-					end
-				end
-				
-			end
-			
-			self.db.profile.sets.UNKNOWN[name] = actionData
+	ActionBarSaverDB = ActionBarSaverDB or {}
+	
+	self:FormatUpgrade()
+	
+	-- Load defaults in
+	for key, value in pairs(defaults) do
+		if( ActionBarSaverDB[key] == nil ) then
+			ActionBarSaverDB[key] = value
 		end
-		
-		self:Print(L["Your DB has been upgraded to the new storage format."])
-		ActionBSDB = nil
 	end
+	
+	for classToken in pairs(RAID_CLASS_COLORS) do
+		ActionBarSaverDB.sets[classToken] = ActionBarSaverDB.sets[classToken] or {}
+	end
+	
+	self.db = ActionBarSaverDB
 	
 	playerClass = select(2, UnitClass("player"))
 	
-	-- Wait until now so we're sure the sets are filled in
-	self:LoadBazaar()
+	-- Is it 3.1?
+	if( select(4, GetBuildInfo()) >= 31000 ) then
+		IS_31000 = true
+	end
+end
+
+-- Check if were still using the Ace3 DB format
+function ABS:FormatUpgrade()
+	if( not ActionBarSaverDB or not ActionBarSaverDB.profiles or not ActionBarSaverDB.profiles.Global ) then
+		return
+	end
+	
+	local backup = CopyTable(ActionBarSaverDB.profiles.Global)
+	ActionBarSaverDB = CopyTable(backup)
+	
+	self:Print(L["Your DB has been upgraded to the new storage format."])
 end
 
 -- Text "compression" so it can be stored in our format fine
@@ -83,7 +77,6 @@ function ABS:UncompressText(text)
 	return string.trim(text)
 end
 
-local lastRun
 function ABS:GetCompanionInfo(id)
 	if( not self.tooltip ) then
 		self.tooltip = CreateFrame("GameTooltip", "ABSTooltip", UIParent, "GameTooltipTemplate")
@@ -94,7 +87,6 @@ function ABS:GetCompanionInfo(id)
 	
 	local text = ABSTooltipTextLeft1:GetText()
 	if( not text ) then
-		lastRun = "Failed to get data on the first tooltip check"
 		return nil, nil, nil
 	end
 	
@@ -108,51 +100,48 @@ function ABS:GetCompanionInfo(id)
 			totalScanned = totalScanned + 1
 			
 			if( text == ABSTooltipTextLeft1:GetText() ) then
-				lastRun = string.format("Found pet succesfully: %s, %s, %s", type or "nil", i or "nil", text or "nil")
 				return type, i, text
 			end
 		end
 	end
 	
-	lastRun = string.format("Ran through everything: %s", totalScanned)
 	return nil, nil, nil
 end
 
 -- Restore a saved profile
 function ABS:SaveProfile(name)
-	self.db.profile.sets[playerClass][name] = self.db.profile.sets[playerClass][name] or {}
-	local set = self.db.profile.sets[playerClass][name]
+	self.db.sets[playerClass][name] = self.db.sets[playerClass][name] or {}
+	local set = self.db.sets[playerClass][name]
 	
-	for id=1, 120 do
-		set[id] = nil
+	for actionID=1, 120 do
+		set[actionID] = nil
 		
-		local type, actionID = GetActionInfo(id)
-		if( type and actionID ) then
-			local binding = ""
-			
-			-- If actionID is 0, it's likely a companion, if we can find the companion then we process it
-			-- otherwise will pass it to our standard handler
-			if( type == "spell" and actionID == 0 ) then
-				local newType, newID, newName = self:GetCompanionInfo(id)
-				if( newType ) then
-					set[id] = string.format("%s|%d|%s|%s", newType, newID, binding, newName)
-				else
-					self:Print(string.format("Failed to save companion: ID %s, AType %s, AID %s, type %s, NID %s, NName %s.", id or "nil", type or "nil", actionID or "nil", newType or "nil", newID or "nil", newName or "nil"))
-					DEFAULT_CHAT_FRAME:AddMessage(string.format("Companion data: %s", lastRun or "nil"))
-					DEFAULT_CHAT_FRAME:AddMessage("PLEASE! Post this on WoWInterface.com under the ActionBarSaver so I can figure out and fix this bug!")
-				end
-				
-			elseif( type == "spell" ) then
-				local spell, rank = GetSpellName(actionID, BOOKTYPE_SPELL)
-				if( spell ) then
-					set[id] = string.format("%s|%d|%s|%s|%s", type, actionID, binding, spell or "", rank or "")
-				end
+		local type, id, subType, extraID = GetActionInfo(actionID)
+		if( type and id ) then
+			-- DB Format: <type>|<id>|<binding>|<name>|<extra ...>
+			-- Save a companion
+			if( type == "companion" ) then
+				set[actionID] = string.format("%s|%s|%s|%s|%s|%s", type, id, "", name, subType, extraID)
+			-- Save an item
 			elseif( type == "item" ) then
-				set[id] = string.format("%s|%d|%s|%s", type, actionID, binding, (GetItemInfo(actionID)) or "")
+				set[actionID] = string.format("%s|%d|%s|%s", type, id, "", (GetItemInfo(id)) or "")
+			-- Save a spell
+			elseif( type == "spell" ) then
+				local spell, rank = GetSpellName(id, BOOKTYPE_SPELL)
+				if( spell ) then
+					set[actionID] = string.format("%s|%d|%s|%s|%s|%s", type, id, "", spell, rank or "", extraID or "")
+				end
+			-- Save a macro
 			elseif( type == "macro" ) then
 				local name, icon, macro = GetMacroInfo(actionID)
 				if( name and icon and macro ) then
-					set[id] = string.format("%s|%d|%s|%s|%s|%s", type, actionID, binding, self:CompressText(name), icon, self:CompressText(macro))
+					set[actionID] = string.format("%s|%d|%s|%s|%s|%s", type, actionID, "", self:CompressText(name), icon, self:CompressText(macro))
+				end
+			-- Save a companion using the hack method
+			elseif( not IS_31000 and type == "spell" and id == 0 ) then
+				local newType, newID, newName = self:GetCompanionInfo(id)
+				if( newType ) then
+					set[actionID] = string.format("%s|%d|%s|%s", newType, newID, "", newName)
 				end
 			end
 		end
@@ -206,6 +195,8 @@ function ABS:RestoreMacros(set)
 				end
 				
 				macroName = self:UncompressText(macroName)
+				
+				-- If we don't have a macro name, it won't be created/saved
 				CreateMacro(macroName == "" and " " or macroName, iconCache[macroIcon] or 1, self:UncompressText(macroData), nil, perCharacter)
 			end
 		end
@@ -220,7 +211,7 @@ end
 
 -- Restore a saved profile
 function ABS:RestoreProfile(name, overrideClass)
-	local set = self.db.profile.sets[overrideClass or playerClass][name]
+	local set = self.db.sets[overrideClass or playerClass][name]
 	if( not set ) then
 		self:Print(string.format(L["No profile with the name \"%s\" exists."], set))
 		return
@@ -257,7 +248,7 @@ function ABS:RestoreProfile(name, overrideClass)
 	end
 	
 	-- Check if we need to restore any missing macros
-	if( self.db.profile.macro ) then
+	if( self.db.macro ) then
 		self:RestoreMacros(set)
 	end
 	
@@ -273,6 +264,7 @@ function ABS:RestoreProfile(name, overrideClass)
 			ClearCursor()
 		end
 		
+		-- Restore this spot
 		if( set[i] ) then
 			self:RestoreAction(i, string.split("|", set[i]))
 		end
@@ -287,28 +279,20 @@ function ABS:RestoreProfile(name, overrideClass)
 	end
 end
 
-function ABS:RestoreAction(i, type, actionID, binding, arg1, arg2, arg3)
+function ABS:RestoreAction(i, type, actionID, binding, ...)
+	-- Restore a spell
 	if( type == "spell" ) then
-		-- Restore the highest rank first if we can, or the specific rank otherwise
-		if( self.db.profile.restoreRank ) then
-			if( spellCache[arg1] ) then
-				PickupSpell(spellCache[arg1], BOOKTYPE_SPELL)
-			elseif( arg2 ~= "" and spellCache[arg1 .. arg2] ) then
-				PickupSpell(spellCache[arg1 .. arg2], BOOKTYPE_SPELL)
-			end
-		-- Restore the rank we saved
-		else
-			if( arg2 ~= "" and spellCache[arg1 .. arg2] ) then
-				PickupSpell(spellCache[arg1 .. arg2], BOOKTYPE_SPELL)
-			elseif( spellCache[arg1] ) then
-				PickupSpell(spellCache[arg1], BOOKTYPE_SPELL)
-			end
+		local spellName, spellRank = ...
+		if( ( self.db.restoreRank or spellRank == "" ) and spellCache[spellName] ) then
+			PickupSpell(spellCache[spellName], BOOKTYPE_SPELL)
+		elseif( spellRank ~= "" and spellCache[spellName .. spellRAnk] ) then
+			PickupSpell(spellCache[spellName .. spellRank], BOOKTYPE_SPELL)
 		end
 		
 		if( GetCursorInfo() ~= type ) then
 			-- Bad restore, check if we should link at all
-			local lowerSpell = string.lower(arg1)
-			for spell, linked in pairs(self.db.profile.spellSubs) do
+			local lowerSpell = string.lower(spellName)
+			for spell, linked in pairs(self.db.spellSubs) do
 				if( lowerSpell == spell and spellCache[linked] ) then
 					self:RestoreAction(i, type, actionID, binding, linked, nil, arg3)
 					return
@@ -318,36 +302,48 @@ function ABS:RestoreAction(i, type, actionID, binding, arg1, arg2, arg3)
 				end
 			end
 			
-			table.insert(restoreErrors, string.format(L["Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet."], arg1, i))
+			table.insert(restoreErrors, string.format(L["Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet."], spellName, i))
 			ClearCursor()
 			return
 		end
 
 		PlaceAction(i)
-	
+	-- Restore a 3.0 saved critter/mount
 	elseif( type == "critter" or type == "mount" ) then
 		PickupCompanion(type, actionID)
 		if( GetCursorInfo() ~= "spell" ) then
-			table.insert(restoreErrors, string.format(L["Unable to restore companion \"%s\" to slot #%d, it does not appear to exist yet."], arg1, i))
+			table.insert(restoreErrors, string.format(L["Unable to restore companion \"%s\" to slot #%d, it does not appear to exist yet."], (select(i, ...)), i))
 			ClearCursor()
 			return
 		end
 		
 		PlaceAction(i)
+	-- Restore a 3.1 saved companion
+	elseif( type == "companion" ) then
+		local critterName, critterType, critterID = ...
+		PickupCompanion(critterType, actionID)
+		if( GetCursorInfo() ~= "companion" ) then
+			table.insert(restoreErrors, string.format(L["Unable to restore companion \"%s\" to slot #%d, it does not appear to exist yet."], critterName, i))
+			ClearCursor()
+			return
+		end
+		
+		PlaceAction(i)
+	-- Restore an item
 	elseif( type == "item" ) then
 		PickupItem(actionID)
 
 		if( GetCursorInfo() ~= type ) then
-			table.insert(restoreErrors, string.format(L["Unable to restore item \"%s\" to slot #%d, cannot be found in inventory."], arg1 and arg1 ~= "" and arg1 or actionID, i))
+			local itemName = select(i, ...)
+			table.insert(restoreErrors, string.format(L["Unable to restore item \"%s\" to slot #%d, cannot be found in inventory."], itemName and itemName ~= "" and itemName or actionID, i))
 			ClearCursor()
 			return
 		end
 		
 		PlaceAction(i)
-		
+	-- Restore a macro
 	elseif( type == "macro" ) then
-		PickupMacro(self:FindMacro(actionID, arg3) or -1)
-		
+		PickupMacro(self:FindMacro(actionID, (select(3, ...))) or -1)
 		if( GetCursorInfo() ~= type ) then
 			table.insert(restoreErrors, string.format(L["Unable to restore macro id #%d to slot #%d, it appears to have been deleted."], actionID, i))
 			ClearCursor()
@@ -367,19 +363,19 @@ SLASH_ABS2 = "/actionbarsaver"
 SlashCmdList["ABS"] = function(msg)
 	msg = msg or ""
 	
-	local cmd, arg1 = string.split(" ", msg, 2)
+	local cmd, arg = string.split(" ", msg, 2)
 	cmd = string.lower(cmd or "")
-	arg1 = string.lower(arg1 or "")
+	arg = string.lower(arg or "")
 	
 	local self = ABS
 	
 	-- Profile saving
-	if( cmd == "save" and arg1 ~= "" ) then
-		self:SaveProfile(arg1)
+	if( cmd == "save" and arg ~= "" ) then
+		self:SaveProfile(arg)
 	
 	-- Spell sub
-	elseif( cmd == "link" and arg1 ~= "" ) then
-		local first, second = string.match(arg1, "\"(.+)\" \"(.+)\"")
+	elseif( cmd == "link" and arg ~= "" ) then
+		local first, second = string.match(arg, "\"(.+)\" \"(.+)\"")
 		first = string.trim(first or "")
 		second = string.trim(second or "")
 		
@@ -388,33 +384,33 @@ SlashCmdList["ABS"] = function(msg)
 			return
 		end
 		
-		self.db.profile.spellSubs[first] = second
+		self.db.spellSubs[first] = second
 		
 		self:Print(string.format(L["Spells \"%s\" and \"%s\" are now linked."], first, second))
 		
 	-- Profile restoring
-	elseif( cmd == "restore" and arg1 ~= "" ) then
+	elseif( cmd == "restore" and arg ~= "" ) then
 		for i=#(restoreErrors), 1, -1 do table.remove(restoreErrors, i) end
 		
 		-- Backwards compat with the old versions format
 		local profileCat = playerClass
-		if( not self.db.profile.sets[playerClass][arg1] and self.db.profile.sets.UNKNOWN[arg1] ) then
+		if( not self.db.sets[playerClass][arg] and self.db.sets.UNKNOWN[arg] ) then
 			profileCat = "UNKNOWN"
 		end
 		
-		if( not self.db.profile.sets[profileCat][arg1] ) then
-			self:Print(string.format(L["Cannot restore profile \"%s\", you can only restore profiles saved to your class."], arg1))
+		if( not self.db.sets[profileCat][arg] ) then
+			self:Print(string.format(L["Cannot restore profile \"%s\", you can only restore profiles saved to your class."], arg))
 			return
 		end
 		
-		self:RestoreProfile(arg1, profileCat)
+		self:RestoreProfile(arg, profileCat)
 		
 		-- No errors, copy it to the new format
 		if( #(restoreErrors) == 0 ) then
 			if( overrideClass == "UNKNOWN" ) then
-				if( not self.db.profile.sets[playerClass][name] ) then
-					self.db.profile.sets[playerClass][name] = CopyTable(set)
-					self.db.profile.sets[profileCat][name] = nil
+				if( not self.db.sets[playerClass][name] ) then
+					self.db.sets[playerClass][name] = CopyTable(set)
+					self.db.sets[profileCat][name] = nil
 				end
 
 				self:Print(string.format(L["The profile %s has been moved from the unknown category to %s."], name, (UnitClass("player"))))
@@ -422,8 +418,8 @@ SlashCmdList["ABS"] = function(msg)
 		end
 
 	-- Profile renaming
-	elseif( cmd == "rename" and arg1 ~= "" ) then
-		local old, new = string.split(" ", arg1, 2)
+	elseif( cmd == "rename" and arg ~= "" ) then
+		local old, new = string.split(" ", arg, 2)
 		new = string.trim(new or "")
 		old = string.trim(old or "")
 		
@@ -433,10 +429,10 @@ SlashCmdList["ABS"] = function(msg)
 		elseif( new == "" ) then
 			self:Print(string.format(L["No name specified to rename \"%s\" to."], old))
 			return
-		elseif( self.db.profile.sets[playerClass][new] ) then
+		elseif( self.db.sets[playerClass][new] ) then
 			self:Print(string.format(L["Cannot rename \"%s\" to \"%s\" a profile already exists for %s."], old, new, (UnitClass("player"))))
 			return
-		elseif( not self.db.profile.sets.UNKNOWN[old] and not self.db.profile.sets[playerClass][old] ) then
+		elseif( not self.db.sets.UNKNOWN[old] and not self.db.sets[playerClass][old] ) then
 			self:Print(string.format(L["No profile with the name \"%s\" exists."], old))
 			return
 		end
@@ -444,13 +440,13 @@ SlashCmdList["ABS"] = function(msg)
 		-- Backwards compat
 		local profileCat = playerClass
 		local isListed = ""
-		if( self.db.profile.sets.UNKNOWN[old] and not self.db.profile.sets[playerClass][old] ) then
+		if( self.db.sets.UNKNOWN[old] and not self.db.sets[playerClass][old] ) then
 			profileCat = "UNKNOWN"
 			isListed = string.format(L["Also moved from the unknown category to %s."], (UnitClass("player")))
 		end
 		
-		self.db.profile.sets[playerClass][new] = CopyTable(self.db.profile.sets[profileCat][old])
-		self.db.profile.sets[profileCat][old] = nil
+		self.db.sets[playerClass][new] = CopyTable(self.db.sets[profileCat][old])
+		self.db.sets[profileCat][old] = nil
 		
 		self:Print(string.format(L["Renamed \"%s\" to \"%s\". %s"], old, new, isListed))
 		
@@ -468,16 +464,16 @@ SlashCmdList["ABS"] = function(msg)
 
 	-- Delete profile
 	elseif( cmd == "delete" ) then
-		self.db.profile.sets.UNKNOWN[arg1] = nil
-		self.db.profile.sets[playerClass][arg1] = nil
-		self:Print(string.format(L["Deleted saved profile %s."], arg1))
+		self.db.sets.UNKNOWN[arg] = nil
+		self.db.sets[playerClass][arg] = nil
+		self:Print(string.format(L["Deleted saved profile %s."], arg))
 	
 	-- List profiles
 	elseif( cmd == "list" ) then
 		local classes = {}
 		local setList = {}
 		
-		for class, sets in pairs(self.db.profile.sets) do
+		for class, sets in pairs(self.db.sets) do
 			table.insert(classes, class)
 		end
 		
@@ -487,7 +483,7 @@ SlashCmdList["ABS"] = function(msg)
 		
 		for _, class in pairs(classes) do
 			for i=#(setList), 1, -1 do table.remove(setList, i) end
-			for setName in pairs(self.db.profile.sets[class]) do
+			for setName in pairs(self.db.sets[class]) do
 				table.insert(setList, setName)
 			end
 			
@@ -498,9 +494,9 @@ SlashCmdList["ABS"] = function(msg)
 		
 	-- Macro restoring
 	elseif( cmd == "macro" ) then
-		self.db.profile.macro = not self.db.profile.macro
+		self.db.macro = not self.db.macro
 
-		if( self.db.profile.macro ) then
+		if( self.db.macro ) then
 			self:Print(L["Auto macro restoration is now enabled!"])
 		else
 			self:Print(L["Auto macro restoration is now disabled!"])
@@ -508,9 +504,9 @@ SlashCmdList["ABS"] = function(msg)
 	
 	-- Item counts
 	elseif( cmd == "count" ) then
-		self.db.profile.checkCount = not self.db.profile.checkCount
+		self.db.checkCount = not self.db.checkCount
 
-		if( self.db.profile.checkCount ) then
+		if( self.db.checkCount ) then
 			self:Print(L["Checking item count is now enabled!"])
 		else
 			self:Print(L["Checking item count is now disabled!"])		
@@ -518,9 +514,9 @@ SlashCmdList["ABS"] = function(msg)
 	
 	-- Rank restore
 	elseif( cmd == "rank" ) then
-		self.db.profile.restoreRank = not self.db.profile.restoreRank
+		self.db.restoreRank = not self.db.restoreRank
 		
-		if( self.db.profile.restoreRank ) then
+		if( self.db.restoreRank ) then
 			self:Print(L["Auto restoring highest spell rank is now enabled!"])
 		else
 			self:Print(L["Auto restoring highest spell rank is now disabled!"])
@@ -534,73 +530,19 @@ SlashCmdList["ABS"] = function(msg)
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs delete <profile> - Deletes the saved profile."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs rename <oldProfile> <newProfile> - Renames a saved profile from oldProfile to newProfile."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs link \"<spell 1>\" \"<spell 2>\" - Links a spell with another, INCLUDE QUOTES for example you can use \"Shadowmeld\" \"War Stomp\" so if War Stomp can't be found, it'll use Shadowmeld and vica versa."])
-		--DEFAULT_CHAT_FRAME:AddMessage(L["/abs test <profile> - Tests restoring a profile, results will be outputted to chat."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs count - Toggles checking if you have the item in your inventory before restoring it, use if you have disconnect issues when restoring."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs macro - Attempts to restore macros that have been deleted for a profile."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs rank - Toggles if ABS should restore the highest rank of the spell, or the one saved originally."])
-		--DEFAULT_CHAT_FRAME:AddMessage(L["/abs errors - Lists the errors that happened on the last restore (if any)."])
 		DEFAULT_CHAT_FRAME:AddMessage(L["/abs list - Lists all saved profiles."])
 	end
 end
 
--- Bazaar support
-function ABS:LoadBazaar()
-	if( not Bazaar ) then
-		return
+-- Check if we need to load
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("ADDON_LOADED")
+frame:SetScript("OnEvent", function(self, event, addon)
+	if( addon == "ActionBarSaver" ) then
+		ABS:OnInitialize()
+		self:UnregisterEvent("ADDON_LOADED")
 	end
-	
-	local Config = {}
-	function Config:Receive(data, categories)
-		local self = ABS
-		
-		for key in pairs(categories) do
-			if( key == "general" ) then
-				self.db.profile.macro = data.general.macro
-				self.db.profile.checkCount = data.general.checkCount
-				
-				-- Load our spells into this
-				for first, second in pairs(data.general.spellSubs) do
-					self.db.profile.spellSubs[first] = second
-				end
-			else
-				-- Merge the profiles
-				for name, data in pairs(data[key]) do
-					-- We already have a profile with this name, so append (sync) to it
-					if( self.db.profile.sets[key][name] ) then
-						name = string.format("(sync) %s", name)
-					end
-					
-					self.db.profile.sets[key][name] = data
-				end
-			end
-		end
-	end
-
-	function Config:Send(categories)
-		local config = {}
-		local self = ABS
-		
-		for key in pairs(categories) do
-			if( key == "general" ) then
-				config.general = {}
-				config.general.macro = self.db.profile.macro
-				config.general.checkCount = self.db.profile.checkCount
-				config.general.spellSubs = CopyTable(self.db.profile.spellSubs)
-			elseif( self.db.profile.sets[key] ) then
-				config[key] = CopyTable(self.db.profile.sets[key])
-			end
-		end
-
-		return config
-	end
-
-	local obj = Bazaar:RegisterAddOn("ActionBarSaver")
-	obj:RegisterCategory("general", "General")
-	
-	for name in pairs(self.db.profile.sets) do
-		obj:RegisterCategory(name, string.format(L["%s Profiles"], L[name] or name))
-	end
-	
-	obj:RegisterReceiveHandler(Config, "Receive")
-	obj:RegisterSendHandler(Config, "Send")
-end
+end)
