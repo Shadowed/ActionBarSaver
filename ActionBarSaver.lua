@@ -241,7 +241,7 @@ function ABS:RestoreAction(i, type, actionID, binding, ...)
 		local spellName, spellRank = ...
 		if( ( self.db.restoreRank or spellRank == "" ) and spellCache[spellName] ) then
 			PickupSpell(spellCache[spellName], BOOKTYPE_SPELL)
-		elseif( spellRank ~= "" and spellCache[spellName .. spellRAnk] ) then
+		elseif( spellRank ~= "" and spellCache[spellName .. spellRank] ) then
 			PickupSpell(spellCache[spellName .. spellRank], BOOKTYPE_SPELL)
 		end
 		
