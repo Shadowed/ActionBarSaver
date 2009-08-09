@@ -1,7 +1,7 @@
-## Interface: 30100
+## Interface: 30200
 ## Title: Action Bar Saver 2
 ## Notes: Saves and restores your action bars
-## Author: Mayen
+## Author: Shadowed
 ## SavedVariables: ActionBarSaverDB
 ## LoadManagers: AddonLoader
 ## X-LoadOn-Slash: /actionbarsaver, /abs
