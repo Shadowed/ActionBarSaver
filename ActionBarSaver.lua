@@ -1,8 +1,8 @@
 --[[ 
-	Action Bar Saver, Mayen/Selari (Horde) from Illidan (US) PvP
+	Action Bar Saver, Shadowed/Mayen
 ]]
 
-ABS = {}
+local ABS = {}
 
 local L = ActionBarSaverLocals
 
@@ -23,9 +23,7 @@ function ABS:OnInitialize()
 	}
 	
 	ActionBarSaverDB = ActionBarSaverDB or {}
-	
-	self:FormatUpgrade()
-	
+		
 	-- Load defaults in
 	for key, value in pairs(defaults) do
 		if( ActionBarSaverDB[key] == nil ) then
@@ -40,18 +38,6 @@ function ABS:OnInitialize()
 	self.db = ActionBarSaverDB
 	
 	playerClass = select(2, UnitClass("player"))
-end
-
--- Check if were still using the Ace3 DB format
-function ABS:FormatUpgrade()
-	if( not ActionBarSaverDB or not ActionBarSaverDB.profiles or not ActionBarSaverDB.profiles.Global ) then
-		return
-	end
-	
-	local backup = CopyTable(ActionBarSaverDB.profiles.Global)
-	ActionBarSaverDB = CopyTable(backup)
-	
-	self:Print(L["Your DB has been upgraded to the new storage format."])
 end
 
 -- Text "compression" so it can be stored in our format fine
@@ -304,6 +290,9 @@ function ABS:Print(msg)
 	DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99ABS|r: " .. msg)
 end
 
+SLASH_ACTIONBARSAVER1 = nil
+SlashCmdList["ACTIONBARSAVER"] = nil
+
 SLASH_ABS1 = "/abs"
 SLASH_ABS2 = "/actionbarsaver"
 SlashCmdList["ABS"] = function(msg)
@@ -365,10 +354,8 @@ SlashCmdList["ABS"] = function(msg)
 			return
 		end
 		
-		-- Backwards compat
-		local profileCat = playerClass
-		self.db.sets[playerClass][new] = CopyTable(self.db.sets[profileCat][old])
-		self.db.sets[profileCat][old] = nil
+		self.db.sets[playerClass][new] = CopyTable(self.db.sets[playerClass][old])
+		self.db.sets[playerClass][old] = nil
 		
 		self:Print(string.format(L["Renamed \"%s\" to \"%s\""], old, new))
 		
