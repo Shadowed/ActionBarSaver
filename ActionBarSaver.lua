@@ -1,12 +1,12 @@
 --[[ 
-	Action Bar Saver, Shadowed/Mayen
+	Action Bar Saver, Shadowed
 ]]
 
 local ABS = {}
 
 local L = ActionBarSaverLocals
 
-local restoreErrors, spellCache, macroCache, highestRanks = {}, {}, {}, {}
+local restoreErrors, spellCache, macroCache, macroNameCache, highestRanks = {}, {}, {}, {}, {}
 local iconCache, playerClass
 
 local MAX_MACROS = 54
@@ -93,16 +93,21 @@ function ABS:SaveProfile(name)
 end
 
 -- Finds the macroID in case it's changed
-function ABS:FindMacro(id, data)
+function ABS:FindMacro(id, name, data)
 	if( macroCache[id] == data ) then
 		return id
 	end
-	
+		
 	-- No such luck, check text
 	for id, currentMacro in pairs(macroCache) do
 		if( currentMacro == data ) then
 			return id
 		end
+	end
+	
+	-- Still no luck, let us try name
+	if( macroNameCache[name] ) then
+		return macroNameCache[name]
 	end
 	
 	return nil
@@ -115,7 +120,7 @@ function ABS:RestoreMacros(set)
 		local type, id, binding, macroName, macroIcon, macroData = string.split("|", data)
 		if( type == "macro" ) then
 			-- Do we already have a macro?
-			local macroID = self:FindMacro(id, macroData)
+			local macroID = self:FindMacro(id, macroName, macroData)
 			if( not macroID ) then
 				local globalNum, charNum = GetNumMacros()
 				-- Make sure we aren't at the limit
@@ -138,15 +143,27 @@ function ABS:RestoreMacros(set)
 				
 				macroName = self:UncompressText(macroName)
 				
-				-- If we don't have a macro name, it won't be created/saved
+				-- No macro name means a space has to be used or else it won't be created and saved
 				CreateMacro(macroName == "" and " " or macroName, iconCache[macroIcon] or 1, self:UncompressText(macroData), nil, perCharacter)
 			end
 		end
 	end
 	
 	-- Recache macros due to any additions
+	local blacklist = {}
 	for i=1, MAX_MACROS do
-		local macro = select(3, GetMacroInfo(i))
+		local name, icon, macro = GetMacroInfo(i)
+		
+		if( name ) then
+			-- If there are macros with the same name, then blacklist and don't look by name
+			if( macroNameCache[name] ) then
+				blacklist[name] = true
+				macroNameCache[name] = i
+			elseif( not blacklist[name] ) then
+				macroNameCache[name] = i
+			end
+		end
+		
 		macroCache[i] = macro and self:CompressText(macro) or nil
 	end
 end
@@ -162,9 +179,11 @@ function ABS:RestoreProfile(name, overrideClass)
 		return
 	end
 	
-	-- Cache spells
-	for k in pairs(spellCache) do spellCache[k] = nil end
+	table.wipe(macroCache)
+	table.wipe(spellCache)
+	table.wipe(macroNameCache)
 	
+	-- Cache spells
 	for book=1, MAX_SKILLLINE_TABS do
 		local _, _, offset, numSpells = GetSpellTabInfo(book)
 
@@ -184,8 +203,20 @@ function ABS:RestoreProfile(name, overrideClass)
 		
 	
 	-- Cache macros
+	local blacklist = {}
 	for i=1, MAX_MACROS do
-		local macro = select(3, GetMacroInfo(i))
+		local name, icon, macro = GetMacroInfo(i)
+		
+		if( name ) then
+			-- If there are macros with the same name, then blacklist and don't look by name
+			if( macroNameCache[name] ) then
+				blacklist[name] = true
+				macroNameCache[name] = i
+			elseif( not blacklist[name] ) then
+				macroNameCache[name] = i
+			end
+		end
+		
 		macroCache[i] = macro and self:CompressText(macro) or nil
 	end
 	
@@ -275,7 +306,8 @@ function ABS:RestoreAction(i, type, actionID, binding, ...)
 		PlaceAction(i)
 	-- Restore a macro
 	elseif( type == "macro" ) then
-		PickupMacro(self:FindMacro(actionID, (select(3, ...))) or -1)
+		local name, _, content = select(1, ...)
+		PickupMacro(self:FindMacro(actionID, name, content or -1))
 		if( GetCursorInfo() ~= type ) then
 			table.insert(restoreErrors, string.format(L["Unable to restore macro id #%d to slot #%d, it appears to have been deleted."], actionID, i))
 			ClearCursor()
