@@ -1,6 +1,6 @@
 select(2, ...).locals = {
 	["Your DB has been upgraded to the new storage format."] = "Your DB has been upgraded to the new storage format.",
-	
+	["Unable to restore equipment set \"%s\" to slot #%d, it does not appear to exist anymore."] = "Unable to restore equipment set \"%s\" to slot #%d, it does not appear to exist anymore.",
 	["Slash commands"] = "Slash commands",
 	["Saved profile %s!"] = "Saved profile %s!",
 	["Restored profile %s!"] = "Restored profile %s!",

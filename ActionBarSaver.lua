@@ -69,6 +69,9 @@ function ABS:SaveProfile(name)
 			-- Save a companion
 			if( type == "companion" ) then
 				set[actionID] = string.format("%s|%s|%s|%s|%s|%s", type, id, "", name, subType, extraID)
+			-- Save an equipment set
+			elseif( type == "equipmentset" ) then
+				set[actionID] = string.format("%s|%s|%s", type, id, "")
 			-- Save an item
 			elseif( type == "item" ) then
 				set[actionID] = string.format("%s|%d|%s|%s", type, id, "", (GetItemInfo(id)) or "")
@@ -280,6 +283,25 @@ function ABS:RestoreAction(i, type, actionID, binding, ...)
 		end
 
 		PlaceAction(i)
+	-- Restore an equipment set button
+	elseif( type == "equipmentset" ) then
+		local slotID = -1
+		for i=1, GetNumEquipmentSets() do
+			if( GetEquipmentSetInfo(i) == actionID ) then
+				slotID = i
+				break
+			end
+		end
+		
+		PickupEquipmentSet(slotID)
+		if( GetCursorInfo() ~= "equipmentset" ) then
+			table.insert(restoreErrors, string.format(L["Unable to restore equipment set \"%s\" to slot #%d, it does not appear to exist anymore."], actionID, i))
+			ClearCursor()
+			return
+		end
+		
+		PlaceAction(i)
+			
 	-- Restore a 3.1 saved companion
 	elseif( type == "companion" ) then
 		local critterName, critterType, critterID = ...
@@ -305,7 +327,7 @@ function ABS:RestoreAction(i, type, actionID, binding, ...)
 		PlaceAction(i)
 	-- Restore a macro
 	elseif( type == "macro" ) then
-		local name, _, content = select(1, ...)
+		local name, _, content = ...
 		PickupMacro(self:FindMacro(actionID, name, content or -1))
 		if( GetCursorInfo() ~= type ) then
 			table.insert(restoreErrors, string.format(L["Unable to restore macro id #%d to slot #%d, it appears to have been deleted."], actionID, i))
