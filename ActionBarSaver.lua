@@ -2,9 +2,8 @@
 	Action Bar Saver, Shadowed
 ]]
 
-local ABS = {}
-
-local L = ActionBarSaverLocals
+local ABS = select(2, ...)
+local L = ABS.locals
 
 local restoreErrors, spellCache, macroCache, macroNameCache, highestRanks = {}, {}, {}, {}, {}
 local iconCache, playerClass

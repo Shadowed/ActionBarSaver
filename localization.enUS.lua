@@ -1,4 +1,4 @@
-ActionBarSaverLocals = {
+select(2, ...).locals = {
 	["Your DB has been upgraded to the new storage format."] = "Your DB has been upgraded to the new storage format.",
 	
 	["Slash commands"] = "Slash commands",
