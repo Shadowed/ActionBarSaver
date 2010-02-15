@@ -230,6 +230,11 @@ function ABS:RestoreProfile(name, overrideClass)
 	-- Start fresh with nothing on the cursor
 	ClearCursor()
 	
+	-- Save current sound setting
+	local soundToggle = GetCVar("Sound_EnableAllSound")
+	-- Turn sound off
+	SetCVar("Sound_EnableAllSound", 0)
+	
 	for i=1, 120 do
 		local type, id = GetActionInfo(i)
 		
@@ -245,6 +250,8 @@ function ABS:RestoreProfile(name, overrideClass)
 		end
 	end
 	
+	-- Restore old sound setting
+	SetCVar("Sound_EnableAllSound", soundToggle)
 	
 	-- Done!
 	if( #(restoreErrors) == 0 ) then
