@@ -1,8 +1,9 @@
 --[[ 
 	Action Bar Saver, Shadowed
 ]]
+ActionBarSaver = select(2, ...)
 
-local ABS = select(2, ...)
+local ABS = ActionBarSaver
 local L = ABS.locals
 
 local restoreErrors, spellCache, macroCache, macroNameCache, highestRanks = {}, {}, {}, {}, {}
@@ -11,6 +12,10 @@ local iconCache, playerClass
 local MAX_MACROS = 54
 local MAX_CHAR_MACROS = 18
 local MAX_GLOBAL_MACROS = 36
+local MAX_ACTION_BUTTONS = 144
+local POSSESSION_START = 121
+local POSSESSION_END = 132
+
 
 function ABS:OnInitialize()
 	local defaults = {
@@ -60,11 +65,11 @@ function ABS:SaveProfile(name)
 	self.db.sets[playerClass][name] = self.db.sets[playerClass][name] or {}
 	local set = self.db.sets[playerClass][name]
 	
-	for actionID=1, 120 do
+	for actionID=1, MAX_ACTION_BUTTONS do
 		set[actionID] = nil
 		
 		local type, id, subType, extraID = GetActionInfo(actionID)
-		if( type and id ) then
+		if( type and id and ( actionID < POSSESSION_START or actionID > POSSESSION_END ) ) then
 			-- DB Format: <type>|<id>|<binding>|<name>|<extra ...>
 			-- Save a companion
 			if( type == "companion" ) then
@@ -230,18 +235,20 @@ function ABS:RestoreProfile(name, overrideClass)
 	-- Start fresh with nothing on the cursor
 	ClearCursor()
 	
-	for i=1, 120 do
-		local type, id = GetActionInfo(i)
+	for i=1, MAX_ACTION_BUTTONS do
+		if( i < POSSESSION_START or i > POSSESSION_END ) then
+			local type, id = GetActionInfo(i)
 		
-		-- Clear the current spot
-		if( id or type ) then
-			PickupAction(i)
-			ClearCursor()
-		end
+			-- Clear the current spot
+			if( id or type ) then
+				PickupAction(i)
+				ClearCursor()
+			end
 		
-		-- Restore this spot
-		if( set[i] ) then
-			self:RestoreAction(i, string.split("|", set[i]))
+			-- Restore this spot
+			if( set[i] ) then
+				self:RestoreAction(i, string.split("|", set[i]))
+			end
 		end
 	end
 	
