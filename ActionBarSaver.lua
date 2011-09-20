@@ -16,7 +16,6 @@ local MAX_ACTION_BUTTONS = 144
 local POSSESSION_START = 121
 local POSSESSION_END = 132
 
-
 function ABS:OnInitialize()
 	local defaults = {
 		macro = false,
@@ -73,7 +72,7 @@ function ABS:SaveProfile(name)
 			-- DB Format: <type>|<id>|<binding>|<name>|<extra ...>
 			-- Save a companion
 			if( type == "companion" ) then
-				set[actionID] = string.format("%s|%s|%s|%s|%s|%s", type, id, "", name, subType, extraID)
+				set[actionID] = string.format("%s|%s|%s|%s|%s|%s", type, id, "", "", subType, "")
 			-- Save an equipment set
 			elseif( type == "equipmentset" ) then
 				set[actionID] = string.format("%s|%s|%s", type, id, "")
@@ -82,9 +81,9 @@ function ABS:SaveProfile(name)
 				set[actionID] = string.format("%s|%d|%s|%s", type, id, "", (GetItemInfo(id)) or "")
 			-- Save a spell
 			elseif( type == "spell" and id > 0 ) then
-				local spell, rank = GetSpellName(id, BOOKTYPE_SPELL)
-				if( spell ) then
-					set[actionID] = string.format("%s|%d|%s|%s|%s|%s", type, id, "", spell, rank or "", extraID or "")
+			    local spellName, spellStance = GetSpellInfo(id)
+				if( spellName and spellStance ) then
+					set[actionID] = string.format("%s|%d|%s|%s|%s|%s", type, id, "", spellName, spellStance or "", extraID or "")
 				end
 			-- Save a macro
 			elseif( type == "macro" ) then
@@ -92,6 +91,9 @@ function ABS:SaveProfile(name)
 				if( name and icon and macro ) then
 					set[actionID] = string.format("%s|%d|%s|%s|%s|%s", type, actionID, "", self:CompressText(name), icon, self:CompressText(macro))
 				end
+			-- Flyout mnenu
+		    elseif( type == "flyout" ) then
+		        set[actionID] = string.format("%s|%d|%s|%s|%s", type, id, "", (GetFlyoutInfo(id)), "")
 			end
 		end
 	end
@@ -132,7 +134,7 @@ function ABS:RestoreMacros(set)
 				local globalNum, charNum = GetNumMacros()
 				-- Make sure we aren't at the limit
 				if( globalNum == MAX_GLOBAL_MACROS and charNum == MAX_CHAR_MACROS ) then
-					table.insert(restoreErrors, L["Unable to restore macros, you already have 18 global and 18 per character ones created."])
+					table.insert(restoreErrors, L["Unable to restore macros, you already have 36 global and 18 per character ones created."])
 					break
 
 				-- We ran out of space for per character, so use global
@@ -196,14 +198,14 @@ function ABS:RestoreProfile(name, overrideClass)
 
 		for i=1, numSpells do
 			local index = offset + i
-			local spell, rank = GetSpellName(index, BOOKTYPE_SPELL)
+			local spell, stance = GetSpellBookItemName(index, BOOKTYPE_SPELL)
 			
 			-- This way we restore the max rank of spells
 			spellCache[spell] = index
 			spellCache[string.lower(spell)] = index
 			
-			if( rank and rank ~= "" ) then
-				spellCache[spell .. rank] = index
+			if( stance and stance ~= "" ) then
+				spellCache[spell .. stance] = index
 			end
 		end
 	end
@@ -269,13 +271,15 @@ function ABS:RestoreProfile(name, overrideClass)
 end
 
 function ABS:RestoreAction(i, type, actionID, binding, ...)
-	-- Restore a spell
-	if( type == "spell" ) then
+	-- Restore a spell, flyout or companion
+	if( type == "spell" or type == "flyout" or type == "companion" ) then
 		local spellName, spellRank = ...
 		if( ( self.db.restoreRank or spellRank == "" ) and spellCache[spellName] ) then
-			PickupSpell(spellCache[spellName], BOOKTYPE_SPELL)
+			PickupSpellBookItem(spellCache[spellName], BOOKTYPE_SPELL)
 		elseif( spellRank ~= "" and spellCache[spellName .. spellRank] ) then
-			PickupSpell(spellCache[spellName .. spellRank], BOOKTYPE_SPELL)
+			PickupSpellBookItem(spellCache[spellName .. spellRank], BOOKTYPE_SPELL)
+		else
+		    PickupSpell(actionID)
 		end
 		
 		if( GetCursorInfo() ~= type ) then
@@ -297,6 +301,16 @@ function ABS:RestoreAction(i, type, actionID, binding, ...)
 		end
 
 		PlaceAction(i)
+	-- Restore flyout
+    elseif( type == "flyout" ) then
+        PickupSpell(actionID)
+        if( GetCursorInfo() ~= "flyout" ) then
+			table.insert(restoreErrors, string.format(L["Unable to restore flyout spell \"%s\" to slot #%d, it does not appear to exist anymore."], actionID, i))
+			ClearCursor()
+			return
+        end
+        PlaceAction(i)
+        
 	-- Restore an equipment set button
 	elseif( type == "equipmentset" ) then
 		local slotID = -1
@@ -316,17 +330,6 @@ function ABS:RestoreAction(i, type, actionID, binding, ...)
 		
 		PlaceAction(i)
 			
-	-- Restore a 3.1 saved companion
-	elseif( type == "companion" ) then
-		local critterName, critterType, critterID = ...
-		PickupCompanion(critterType, actionID)
-		if( GetCursorInfo() ~= "companion" ) then
-			table.insert(restoreErrors, string.format(L["Unable to restore companion \"%s\" to slot #%d, it does not appear to exist yet."], critterName, i))
-			ClearCursor()
-			return
-		end
-		
-		PlaceAction(i)
 	-- Restore an item
 	elseif( type == "item" ) then
 		PickupItem(actionID)

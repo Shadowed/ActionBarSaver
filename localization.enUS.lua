@@ -45,7 +45,7 @@ select(2, ...).locals = {
 	
 	["Miscellaneous"] = "Miscellaneous",
 	["Unable to restore companion \"%s\" to slot #%d, it does not appear to exist yet."] = "Unable to restore companion \"%s\" to slot #%d, it does not appear to exist yet.",
-	["Unable to restore macros, you already have 18 global and 18 per character ones created."] = "Unable to restore macros, you already have 18 global and 18 per character ones created.",
+	["Unable to restore macros, you already have 36 global and 18 per character ones created."] = "Unable to restore macros, you already have 36 global and 18 per character ones created.",
 	["Cannot restore profile \"%s\", you can only restore profiles saved to your class."] = "Cannot restore profile \"%s\", you can only restore profiles saved to your class.",
 	["Cannot test restore profile \"%s\", you can only test restore profiles saved to your class."] = "Cannot test restore profile \"%s\", you can only test restore profiles saved to your class.",
 	["Auto restoring highest spell rank is now enabled!"] = "Auto restoring highest spell rank is now enabled!",
