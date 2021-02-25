@@ -1,0 +1,18 @@
+tag 555710881e32af0cd96dae6601aa4d69a7561832 v2.3.4
+Author:	Shadowed <shadowed.wow@gmail.com>
+Date:	Sun Dec 1 10:41:24 2019 -0800
+
+Tagging as release v2.3.4
+
+commit e2be662b094e6ebdc26c1fab51d871c03d9ef122
+Author: Shadowed <shadowed.wow@gmail.com>
+Date:   Sun Dec 1 09:57:25 2019 -0800
+
+    Updated for WoW Classic
+
+commit b9901cb49ec9f46d69f39575fc85c50c8b0f37a9
+Author: Shadowed <shadowed.wow@gmail.com>
+Date:   Tue Nov 25 23:28:02 2014 -0800
+
+    code is hard
+

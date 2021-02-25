@@ -1,11 +1,19 @@
-## Interface: 40200
-## Title: Action Bar Saver 2
-## Notes: Saves and restores your action bars
+## Interface: 11302
+## Title: Action Bar Saver
+## Notes: Saves and restores your action bars.
 ## Author: Shadowed
 ## SavedVariables: ActionBarSaverDB
 ## LoadManagers: AddonLoader
 ## X-LoadOn-Slash: /actionbarsaver, /abs
 
-localization.enUS.lua
+localization\enUS.lua
+localization\deDE.lua
+localization\esES.lua
+localization\esMX.lua
+localization\frFR.lua
+localization\koKR.lua
+localization\ruRU.lua
+localization\zhCN.lua
+localization\zhTW.lua
 
 ActionBarSaver.lua

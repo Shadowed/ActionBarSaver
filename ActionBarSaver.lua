@@ -4,10 +4,10 @@
 ActionBarSaver = select(2, ...)
 
 local ABS = ActionBarSaver
-local L = ABS.locals
+local L = ABS.L
 
 local restoreErrors, spellCache, macroCache, macroNameCache, highestRanks = {}, {}, {}, {}, {}
-local iconCache, playerClass
+local playerClass
 
 local MAX_MACROS = 54
 local MAX_CHAR_MACROS = 18
@@ -16,11 +16,15 @@ local MAX_ACTION_BUTTONS = 144
 local POSSESSION_START = 121
 local POSSESSION_END = 132
 
+local MAX_CHAR_MACROS = MAX_CHARACTER_MACROS
+local MAX_GLOBAL_MACROS = MAX_ACCOUNT_MACROS
+local MAX_MACROS = MAX_CHAR_MACROS + MAX_GLOBAL_MACROS
+
 function ABS:OnInitialize()
 	local defaults = {
 		macro = false,
 		checkCount = false,
-		restoreRank = true,
+		restoreRank = false,
 		spellSubs = {},
 		sets = {}
 	}
@@ -82,7 +86,7 @@ function ABS:SaveProfile(name)
 			-- Save a spell
 			elseif( type == "spell" and id > 0 ) then
 			    local spellName, spellStance = GetSpellInfo(id)
-				if( spellName and spellStance ) then
+				if( spellName or spellStance ) then
 					set[actionID] = string.format("%s|%d|%s|%s|%s|%s", type, id, "", spellName, spellStance or "", extraID or "")
 				end
 			-- Save a macro
@@ -141,19 +145,15 @@ function ABS:RestoreMacros(set)
 				elseif( charNum == MAX_CHAR_MACROS ) then
 					perCharacter = false
 				end
-
-				-- When creating a macro, we have to pass the icon id not the icon path
-				if( not iconCache ) then
-					iconCache = {}
-					for i=1, GetNumMacroIcons() do
-						iconCache[(GetMacroIconInfo(i))] = i
-					end
-				end
 				
 				macroName = self:UncompressText(macroName)
+
+				-- GetMacroInfo still returns the full path while CreateMacro needs the relative
+				-- can also return INTERFACE\ICONS\ aswell, apparently.
+				macroIcon = macroIcon and string.gsub(macroIcon, "[iI][nN][tT][eE][rR][fF][aA][cC][eE]\\[iI][cC][oO][nN][sS]\\", "")
 				
 				-- No macro name means a space has to be used or else it won't be created and saved
-				CreateMacro(macroName == "" and " " or macroName, iconCache[macroIcon] or 1, self:UncompressText(macroData), nil, perCharacter)
+				CreateMacro(macroName == "" and " " or macroName, macroIcon or "INV_Misc_QuestionMark", self:UncompressText(macroData), perCharacter)
 			end
 		end
 	end
@@ -194,18 +194,22 @@ function ABS:RestoreProfile(name, overrideClass)
 	
 	-- Cache spells
 	for book=1, MAX_SKILLLINE_TABS do
-		local _, _, offset, numSpells = GetSpellTabInfo(book)
+		local _, _, offset, numSpells, _, offSpecID = GetSpellTabInfo(book)
 
 		for i=1, numSpells do
-			local index = offset + i
-			local spell, stance = GetSpellBookItemName(index, BOOKTYPE_SPELL)
-			
-			-- This way we restore the max rank of spells
-			spellCache[spell] = index
-			spellCache[string.lower(spell)] = index
-			
-			if( stance and stance ~= "" ) then
-				spellCache[spell .. stance] = index
+			if offSpecID == 0 then -- don't process grayed-out "offspec" tabs
+				for i=1, numSpells do
+					local index = offset + i
+					local spell, stance = GetSpellBookItemName(index, BOOKTYPE_SPELL)
+				
+					-- This way we restore the max rank of spells
+					spellCache[spell] = index
+					spellCache[string.lower(spell)] = index
+				
+					if( stance and stance ~= "" ) then
+						spellCache[spell .. stance] = index
+					end
+	 			end
 			end
 		end
 	end
@@ -274,10 +278,8 @@ function ABS:RestoreAction(i, type, actionID, binding, ...)
 	-- Restore a spell, flyout or companion
 	if( type == "spell" or type == "flyout" or type == "companion" ) then
 		local spellName, spellRank = ...
-		if( ( self.db.restoreRank or spellRank == "" ) and spellCache[spellName] ) then
-			PickupSpellBookItem(spellCache[spellName], BOOKTYPE_SPELL)
-		elseif( spellRank ~= "" and spellCache[spellName .. spellRank] ) then
-			PickupSpellBookItem(spellCache[spellName .. spellRank], BOOKTYPE_SPELL)
+		if( spellCache[spellName] ) then
+			PickupSpellBookItem(spellCache[spellName], BOOKTYPE_SPELL);
 		else
 		    PickupSpell(actionID)
 		end
