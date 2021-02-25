@@ -1,6 +1,5 @@
 local ABS = select(2, ...)
 local L = {}
-L["%s Profiles"] = "%s Profiles"
 L["/abs count - Toggles checking if you have the item in your inventory before restoring it, use if you have disconnect issues when restoring."] = "/abs count - Toggles checking if you have the item in your inventory before restoring it, use if you have disconnect issues when restoring."
 L["/abs delete <profile> - Deletes the saved profile."] = "/abs delete <profile> - Deletes the saved profile."
 L["/abs errors - Lists the errors that happened on the last restore (if any)."] = "/abs errors - Lists the errors that happened on the last restore (if any)."
@@ -49,6 +48,7 @@ L["Saved profile %s!"] = "Saved profile %s!"
 L["SHAMAN"] = "Shaman"
 L["Slash commands"] = "Slash commands"
 L["Spells \"%s\" and \"%s\" are now linked."] = "Spells \"%s\" and \"%s\" are now linked."
+L["%s Profiles"] = "%s Profiles"
 L["The profile %s has been moved from the unknown category to %s."] = "The profile %s has been moved from the unknown category to %s."
 L["Unable to restore companion \"%s\" to slot #%d, it does not appear to exist yet."] = "Unable to restore companion \"%s\" to slot #%d, it does not appear to exist yet."
 L["Unable to restore equipment set \"%s\" to slot #%d, it does not appear to exist anymore."] = "Unable to restore equipment set \"%s\" to slot #%d, it does not appear to exist anymore."

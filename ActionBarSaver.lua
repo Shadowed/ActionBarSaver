@@ -63,41 +63,75 @@ function ABS:UncompressText(text)
 	return string.trim(text)
 end
 
+
+function macroContainsClassSpell(macroBody)
+	for spellName, id in pairs(spellCache) do
+		if string.find(macroBody, spellName) then
+			return true
+		end
+	end
+end
+
+
 -- Restore a saved profile
 function ABS:SaveProfile(name)
+	self:CreateSpellCache()
 	self.db.sets[playerClass][name] = self.db.sets[playerClass][name] or {}
 	local set = self.db.sets[playerClass][name]
-	
-	for actionID=1, MAX_ACTION_BUTTONS do
+	for actionID = 1, MAX_ACTION_BUTTONS do
 		set[actionID] = nil
-		
 		local type, id, subType, extraID = GetActionInfo(actionID)
 		if( type and id and ( actionID < POSSESSION_START or actionID > POSSESSION_END ) ) then
 			-- DB Format: <type>|<id>|<binding>|<name>|<extra ...>
+			--save a mount
+	--		print(type, subType)
+			if( type == "summonmount" ) or (subType == "MOUNT") then
+				--Blizzard uses two different methods for mounts, so catch it either way. 
+				set[actionID] = string.join("|", "MOUNT", id) --mount must be all caps! GetCursorInfo returns it as all caps when restoring
+			--save a battle pet(non-combat pets)
+			elseif( type == "summonpet" ) then
+				set[actionID] = string.join("|", "battlepet", id)
 			-- Save a companion
-			if( type == "companion" ) then
-				set[actionID] = string.format("%s|%s|%s|%s|%s|%s", type, id, "", "", subType, "")
+			elseif( type == "companion" ) then
+				set[actionID] = string.join("|", type, id, "", "", subType)
 			-- Save an equipment set
 			elseif( type == "equipmentset" ) then
-				set[actionID] = string.format("%s|%s|%s", type, id, "")
+				set[actionID] = string.join("|", type, id, "")
 			-- Save an item
 			elseif( type == "item" ) then
-				set[actionID] = string.format("%s|%d|%s|%s", type, id, "", (GetItemInfo(id)) or "")
+				set[actionID] = string.join("|", type, id, "", (GetItemInfo(id)) or "")
+			-- Save a pet spell
+			elseif( subType == "pet" and id > 0 ) then
+			 local spellName, spellStance = GetSpellInfo(id)
+				if( spellName) then
+					set[actionID] = string.join("|", "petaction", id, "", spellName, spellStance or "", extraID or "")
+				end
 			-- Save a spell
 			elseif( type == "spell" and id > 0 ) then
-			    local spellName, spellStance = GetSpellInfo(id)
-				if( spellName or spellStance ) then
-					set[actionID] = string.format("%s|%d|%s|%s|%s|%s", type, id, "", spellName, spellStance or "", extraID or "")
+			 local spellName, spellStance = GetSpellInfo(id)
+				if( spellName) then
+					local class
+					if spellCache[spellName] then
+						--spell is class specific
+						class =  select(2, UnitClass("player"))
+					end
+					set[actionID] = string.join("|", type, id, "", spellName, spellStance or "", extraID or "", class or "")
 				end
 			-- Save a macro
 			elseif( type == "macro" ) then
 				local name, icon, macro = GetMacroInfo(id)
 				if( name and icon and macro ) then
-					set[actionID] = string.format("%s|%d|%s|%s|%s|%s", type, actionID, "", self:CompressText(name), icon, self:CompressText(macro))
+					local spellName = GetMacroSpell(GetMacroIndexByName(name))
+					local class
+					if macroContainsClassSpell(macro) then
+						--macro casts a spell, and that spell is class specific
+						class =  select(2, UnitClass("player"))
+					end
+					set[actionID] = string.join("|", type, actionID, "", self:CompressText(name), icon, self:CompressText(macro), class or "")
 				end
-			-- Flyout mnenu
-		    elseif( type == "flyout" ) then
-		        set[actionID] = string.format("%s|%d|%s|%s|%s", type, id, "", (GetFlyoutInfo(id)), "")
+			-- Flyout menu
+		 elseif( type == "flyout" ) then
+			set[actionID] = string.join("|", type, id, "", (GetFlyoutInfo(id)))
 			end
 		end
 	end
@@ -149,7 +183,7 @@ function ABS:RestoreMacros(set)
 				macroName = self:UncompressText(macroName)
 
 				-- GetMacroInfo still returns the full path while CreateMacro needs the relative
-				-- can also return INTERFACE\ICONS\ aswell, apparently.
+				-- can also return INTERFACE\ICONS\ as well, apparently.
 				macroIcon = macroIcon and string.gsub(macroIcon, "[iI][nN][tT][eE][rR][fF][aA][cC][eE]\\[iI][cC][oO][nN][sS]\\", "")
 				
 				-- No macro name means a space has to be used or else it won't be created and saved
@@ -177,21 +211,27 @@ function ABS:RestoreMacros(set)
 	end
 end
 
--- Restore a saved profile
-function ABS:RestoreProfile(name, overrideClass)
-	local set = self.db.sets[overrideClass or playerClass][name]
-	if( not set ) then
-		self:Print(string.format(L["No profile with the name \"%s\" exists."], set))
-		return
-	elseif( InCombatLockdown() ) then
-		self:Print(String.format(L["Unable to restore profile \"%s\", you are in combat."], set))
-		return
+function isSpellCurrentClass(type, id)
+	local isCurrent
+	
+	if type == "macro" then
+		local name, icon, body, isLocal = GetMacroInfo(id)
+		id = GetMacroSpell(name)
 	end
-	
-	table.wipe(macroCache)
+
+	local spellName = spellCache[GetSpellInfo(id)]
+	if spellName then		
+		local spec, class = IsSpellClassOrSpec(spellName, "spell")
+		
+		if id and ((type == "spell") or (type == "macro")) and (spec or class) then
+			isCurrent = true
+		end
+	end
+	return isCurrent
+end
+
+function ABS:CreateSpellCache()
 	table.wipe(spellCache)
-	table.wipe(macroNameCache)
-	
 	-- Cache spells
 	for book=1, MAX_SKILLLINE_TABS do
 		local _, _, offset, numSpells, _, offSpecID = GetSpellTabInfo(book)
@@ -213,7 +253,32 @@ function ABS:RestoreProfile(name, overrideClass)
 			end
 		end
 	end
-		
+end
+
+function ABS:ClearActionBars()
+	for i=1, MAX_ACTION_BUTTONS do
+		if( i < POSSESSION_START or i > POSSESSION_END ) then
+			PickupAction(i)
+			ClearCursor()
+		end
+	end
+end
+
+-- Restore a saved profile
+function ABS:RestoreProfile(name, overrideClass)
+	local set = self.db.sets[overrideClass or playerClass][name]
+	if( not set ) then
+		self:Print(string.format(L["No profile with the name \"%s\" exists."], set))
+		return
+	elseif( InCombatLockdown() ) then
+		self:Print(String.format(L["Unable to restore profile \"%s\", you are in combat."], set))
+		return
+	end
+	
+	table.wipe(macroCache)
+	table.wipe(macroNameCache)
+
+	self:CreateSpellCache()
 	
 	-- Cache macros
 	local blacklist = {}
@@ -237,7 +302,7 @@ function ABS:RestoreProfile(name, overrideClass)
 	if( self.db.macro ) then
 		self:RestoreMacros(set)
 	end
-	
+
 	-- Start fresh with nothing on the cursor
 	ClearCursor()
 	
@@ -248,16 +313,24 @@ function ABS:RestoreProfile(name, overrideClass)
 
 	for i=1, MAX_ACTION_BUTTONS do
 		if( i < POSSESSION_START or i > POSSESSION_END ) then
-			local type, id = GetActionInfo(i)
+			local type, id, subType = GetActionInfo(i)
 		
+			local proceed = true
 			-- Clear the current spot
-			if( id or type ) then
-				PickupAction(i)
-				ClearCursor()
+			if( id or type ) and (self.db.leave ~= true) then
+				
+				if (self.db.leaveClass == true) then
+					proceed = isSpellCurrentClass(type, id) == nil
+				end
+				
+				if proceed == true then
+					PickupAction(i)
+					ClearCursor()
+				end
 			end
 		
 			-- Restore this spot
-			if( set[i] ) then
+			if( set[i] ) and (proceed == true) then
 				self:RestoreAction(i, string.split("|", set[i]))
 			end
 		end
@@ -273,89 +346,157 @@ function ABS:RestoreProfile(name, overrideClass)
 		self:Print(string.format(L["Restored profile %s, failed to restore %d buttons type /abs errors for more information."], name, #(restoreErrors)))
 	end
 end
+local types
+types = {
+	item = {
+		pickup = function(i, type, actionID, binding, ...)
+			return PickupItem(actionID)
+		end,
+		errorMessage = function(i, type, actionID, binding, ...)
+			if( GetCursorInfo() ~= type ) then
+				local itemName = select(i, ...)
+				table.insert(restoreErrors, string.format(L["Unable to restore item \"%s\" to slot #%d, cannot be found in inventory."], itemName and itemName ~= "" and itemName or actionID, i))
+				return true
+			end
+		end,
+	},
+	macro = {
+		pickup = function(i, type, actionID, binding, ...)
+			local name, _, content, class = ...
+			
+			if class and (class ~= "") and ABS.db.ignoreClass and (class ~= select(2, UnitClass("player"))) then
+				
+			else
+				return PickupMacro(ABS:FindMacro(actionID, name, content or -1))
+			end
+		end,
+		errorMessage = function(i, type, actionID, binding, ...)
+			if( GetCursorInfo() ~= type ) then
+				table.insert(restoreErrors, string.format(L["Unable to restore macro id #%d to slot #%d, it appears to have been deleted."], actionID, i))
+				return true
+			end
+		end,
+	},
+	petaction = {
+		pickup = function(i, type, actionID, binding, ...)
+			PickupPetSpell(actionID)
+		end,
+		errorMessage = function(...) return types.spell.errorMessage(...) end,
+	},
+	spell = {
+		pickup = function(i, type, actionID, binding, ...)
+			local spellName, _, _, class = ...
+			if class and (class ~= "") and ABS.db.ignoreClass and (class ~= select(2, UnitClass("player"))) then
 
-function ABS:RestoreAction(i, type, actionID, binding, ...)
-	-- Restore a spell, flyout or companion
-	if( type == "spell" or type == "flyout" or type == "companion" ) then
-		local spellName, spellRank = ...
-		if( spellCache[spellName] ) then
-			PickupSpellBookItem(spellCache[spellName], BOOKTYPE_SPELL);
-		else
-		    PickupSpell(actionID)
-		end
-		
-		if( GetCursorInfo() ~= type ) then
-			-- Bad restore, check if we should link at all
-			local lowerSpell = string.lower(spellName)
-			for spell, linked in pairs(self.db.spellSubs) do
-				if( lowerSpell == spell and spellCache[linked] ) then
-					self:RestoreAction(i, type, actionID, binding, linked, nil, arg3)
-					return
-				elseif( lowerSpell == linked and spellCache[spell] ) then
-					self:RestoreAction(i, type, actionID, binding, spell, nil, arg3)
-					return
+			
+			else
+				if( spellCache[spellName] and ABS.db.restoreRank ) then
+					return PickupSpellBookItem(spellCache[spellName], BOOKTYPE_SPELL);
+				else
+					return PickupSpell(actionID)
+				end
+						
+				if( GetCursorInfo() ~= type ) then
+					--last ditch effort if spellCache goes wrong(it does fail for a few warlock spells)
+					return PickupSpell(actionID)
+				end
+			end
+		end,
+		errorMessage = function(i, type, actionID, binding, ...)
+			local spellName = ...
+			if( GetCursorInfo() ~= type ) then
+				-- Bad restore, check if we should link at all
+				local lowerSpell = string.lower(spellName)
+				for spell, linked in pairs(ABS.db.spellSubs) do
+					if( lowerSpell == spell and spellCache[linked] ) then
+						ABS:RestoreAction(i, type, actionID, binding, linked, nil, arg3)
+						return
+					elseif( lowerSpell == linked and spellCache[spell] ) then
+						ABS:RestoreAction(i, type, actionID, binding, spell, nil, arg3)
+						return
+					end
+				end
+				table.insert(restoreErrors, string.format(L["Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet."], spellName, i))
+				return true
+			end
+		end,
+	},
+	mount = {
+		pickup = function(i, type, actionID, binding, ...)
+			local _, spellID = types.mount.info(actionID)
+			PickupSpell(spellID or actionID)
+		end,
+		info = function(actionID)
+			return C_MountJournal.GetMountInfoByID(actionID)
+		end,
+		errorMessage = function(i, type, actionID, binding, ...)
+			print(type)
+			local cType, cID, cSubType = GetCursorInfo()
+			local creatureName = types.mount.info(actionID)
+			if( cSubType ~= type ) and creatureName then
+				table.insert(restoreErrors, string.format(L["Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet."], creatureName, i))
+				return true
+			end
+		end,
+	},
+	equipmentset = {
+		pickup = function(i, type, actionID, binding, ...)
+			local slotID = -1
+			for i=1, GetNumEquipmentSets() do
+				if( GetEquipmentSetInfo(i) == actionID ) then
+					slotID = i
+					break
 				end
 			end
 			
-			table.insert(restoreErrors, string.format(L["Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet."], spellName, i))
-			ClearCursor()
-			return
-		end
-
-		PlaceAction(i)
-	-- Restore flyout
-    elseif( type == "flyout" ) then
-        PickupSpell(actionID)
-        if( GetCursorInfo() ~= "flyout" ) then
-			table.insert(restoreErrors, string.format(L["Unable to restore flyout spell \"%s\" to slot #%d, it does not appear to exist anymore."], actionID, i))
-			ClearCursor()
-			return
-        end
-        PlaceAction(i)
-        
-	-- Restore an equipment set button
-	elseif( type == "equipmentset" ) then
-		local slotID = -1
-		for i=1, GetNumEquipmentSets() do
-			if( GetEquipmentSetInfo(i) == actionID ) then
-				slotID = i
-				break
+			return PickupEquipmentSet(slotID)
+		end,
+		errorMessage = function(i, type, actionID, binding, ...)
+			if( GetCursorInfo() ~= "equipmentset" ) then
+				table.insert(restoreErrors, string.format(L["Unable to restore equipment set \"%s\" to slot #%d, it does not appear to exist anymore."], actionID, i))
+				return true
 			end
-		end
-		
-		PickupEquipmentSet(slotID)
-		if( GetCursorInfo() ~= "equipmentset" ) then
-			table.insert(restoreErrors, string.format(L["Unable to restore equipment set \"%s\" to slot #%d, it does not appear to exist anymore."], actionID, i))
-			ClearCursor()
-			return
-		end
-		
-		PlaceAction(i)
-			
-	-- Restore an item
-	elseif( type == "item" ) then
-		PickupItem(actionID)
+		end,
+	},
+	flyout = {
+		pickup = function(i, type, actionID, binding, ...)
+			local name = ...
+			PickupSpellBookItem(spellCache[string.lower(name)] or actionId, "spell")
+		end,
+		errorMessage = function(i, type, actionID, binding, ...)
+			if( GetCursorInfo() ~= "flyout" ) then
+				table.insert(restoreErrors, string.format(L["Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet."], name, actionID))
+				return true
+			end
+		end,
+	},
+	battlepet ={
+		pickup = function(i, type, actionID, binding, ...)
+					local _, customName, _, _, _, _, _, name = types.battlepet.info(actionID)
+			C_PetJournal.PickupPet(actionID)	
+		end,
+		info = function(actionID)
+			return C_PetJournal.GetPetInfoByPetID(actionID)
+		end,
+		errorMessage = function(i, type, actionID, binding, ...)
+			if( type ~= GetCursorInfo() ) then
+				table.insert(restoreErrors, string.format(L["Unable to restore spell \"%s\" to slot #%d, it does not appear to have been learned yet."], customName or name, i))
+				return true
+			end
+		end,
+	},
+	
+}
 
-		if( GetCursorInfo() ~= type ) then
-			local itemName = select(i, ...)
-			table.insert(restoreErrors, string.format(L["Unable to restore item \"%s\" to slot #%d, cannot be found in inventory."], itemName and itemName ~= "" and itemName or actionID, i))
+function ABS:RestoreAction(i, type, actionID, binding, ...)
+	local info = types[string.lower(type)]
+	if info then
+		info.pickup(i, type, actionID, binding, ...)
+		if info.errorMessage(i, type, actionID, binding, ...) then
 			ClearCursor()
-			return
 		end
-		
-		PlaceAction(i)
-	-- Restore a macro
-	elseif( type == "macro" ) then
-		local name, _, content = ...
-		PickupMacro(self:FindMacro(actionID, name, content or -1))
-		if( GetCursorInfo() ~= type ) then
-			table.insert(restoreErrors, string.format(L["Unable to restore macro id #%d to slot #%d, it appears to have been deleted."], actionID, i))
-			ClearCursor()
-			return
-		end
-		
-		PlaceAction(i)
 	end
+	PlaceAction(i)
 end
 
 function ABS:Print(msg)
@@ -502,6 +643,10 @@ SlashCmdList["ABS"] = function(msg)
 			self:Print(L["Auto restoring highest spell rank is now disabled!"])
 		end
 		
+	-- open new profiles menu	
+	elseif( string.find("options", cmd, 1)) then
+		InterfaceOptionsFrame:Show()
+		InterfaceOptionsFrame_OpenToCategory(ActionBarSaver.Options.name)
 	-- Halp
 	else
 		self:Print(L["Slash commands"])

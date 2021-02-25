@@ -1,6 +1,5 @@
 if( GetLocale() ~= "esMX" ) then return end
 local L = {}
-L["%s Profiles"] = "Perfiles %s"
 L["/abs count - Toggles checking if you have the item in your inventory before restoring it, use if you have disconnect issues when restoring."] = "/abs count - Comprobar de que tiene el objeto en su inventario antes de restaurarlo. Activa esta opción si se desconecta al restaurar."
 L["/abs delete <profile> - Deletes the saved profile."] = "/abs delete <perfil> - Eliminar el perfil guardado."
 L["/abs errors - Lists the errors that happened on the last restore (if any)."] = "/abs errors - Listar los errores (si los hay) que ocurrieron en la previa restauración."
@@ -49,6 +48,7 @@ L["Saved profile %s!"] = "Guardó el perfil %s!"
 L["SHAMAN"] = "Chamán"
 L["Slash commands"] = "Comandos"
 L["Spells \"%s\" and \"%s\" are now linked."] = "Los hechizos \"%s\" y \"%s\" ahora están enlazados."
+L["%s Profiles"] = "Perfiles %s"
 L["The profile %s has been moved from the unknown category to %s."] = "El perfil %s se ha movido de la categoría desconocido a %s."
 L["Unable to restore companion \"%s\" to slot #%d, it does not appear to exist yet."] = "No puede restuarar \"%s\" a la posición #%d, porque no parece existir todavía."
 L["Unable to restore equipment set \"%s\" to slot #%d, it does not appear to exist anymore."] = "No puede restaurar el conjunto de equipamiento \"%s\" a la posición #%d, porque no parece existir más."
