@@ -1,0 +1,13 @@
+tag v2.3.3
+ad89ad5bf9ece06e5b6ff53859c333241612ffa6
+Shadowed <shadowed.wow@gmail.com>
+2014-11-25 23:26:55 -0800
+
+Tagging as release v2.3.3
+
+
+--------------------
+
+Shadowed:
+	- cleaned up files
+	- Updated for WoD

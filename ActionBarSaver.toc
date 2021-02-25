@@ -1,11 +1,24 @@
-## Interface: 40200
-## Title: Action Bar Saver 2
-## Notes: Saves and restores your action bars
+## Interface: 60000
+## Title: Action Bar Saver
+## Notes: Saves and restores your action bars.
 ## Author: Shadowed
 ## SavedVariables: ActionBarSaverDB
 ## LoadManagers: AddonLoader
 ## X-LoadOn-Slash: /actionbarsaver, /abs
+## X-Curse-Packaged-Version: v2.3.3
+## X-Curse-Project-Name: Action Bar Saver
+## X-Curse-Project-ID: action-bar-saver
+## X-Curse-Repository-ID: wow/action-bar-saver/mainline
 
-localization.enUS.lua
+localization\enUS.lua
+localization\deDE.lua
+localization\esES.lua
+localization\esMX.lua
+localization\frFR.lua
+localization\koKR.lua
+localization\ruRU.lua
+localization\zhCN.lua
+localization\zhTW.lua
 
 ActionBarSaver.lua
+Options.lua
